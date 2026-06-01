@@ -1,0 +1,139 @@
+# yii3-recaptcha
+
+Google reCAPTCHA v2 and v3 widget and validator for Yii3.
+
+## Install
+
+```bash
+composer require rasuvaeff/yii3-recaptcha
+```
+
+## Rules
+
+- `declare(strict_types=1)` in every file.
+- `final readonly class` by default. `final class` only when clone-based immutability is needed.
+- `#[\Override]` on every interface/parent method implementation.
+- No `@psalm-suppress` — fix the root cause.
+- Secret keys must never appear in client-side output.
+
+## API reference
+
+### RecaptchaV2 (widget)
+
+```php
+use Rasuvaeff\Yii3Recaptcha\RecaptchaV2;
+use Rasuvaeff\Yii3Recaptcha\RecaptchaV2Theme;
+use Rasuvaeff\Yii3Recaptcha\RecaptchaV2Type;
+use Rasuvaeff\Yii3Recaptcha\RecaptchaV2Size;
+
+$html = RecaptchaV2::widget()
+    ->withSiteKey('site-key')
+    ->withId('login-captcha') // optional; auto-generated unique id if omitted
+    ->withTheme(RecaptchaV2Theme::Dark)
+    ->withType(RecaptchaV2Type::Image)
+    ->withSize(RecaptchaV2Size::Normal)
+    ->withCallback('onSuccess')
+    ->withExpiredCallback('onExpired')
+    ->withErrorCallback('onError')
+    ->withJsApiUrl('https://www.google.com/recaptcha/api.js')
+    ->render();
+```
+
+### RecaptchaV3 (widget)
+
+```php
+use Rasuvaeff\Yii3Recaptcha\RecaptchaV3;
+use Rasuvaeff\Yii3Recaptcha\RecaptchaV3Badge;
+
+$html = RecaptchaV3::widget()
+    ->withSiteKey('site-key')
+    ->withAction('login')                  // grecaptcha.execute action; default 'submit'
+    ->withFieldName('recaptchaToken')      // hidden input name; default 'g-recaptcha-response'
+    ->withFieldId('rc3')                   // optional; auto-generated unique id if omitted
+    ->withFormId('login-form')             // optional; enables invisible-submit binding
+    ->withBadge(RecaptchaV3Badge::Hidden)  // BottomRight (default) | BottomLeft | Hidden (+legal notice)
+    ->render();
+// Renders: api.js?render=site-key script + hidden input + inline script.
+// Without withFormId(): token is filled on grecaptcha.ready().
+// With withFormId(): submit is intercepted, token executed+filled, then form submitted.
+// All embedded values are JSON-encoded with XSS-safe flags.
+```
+
+### RecaptchaConfig
+
+```php
+$config = new RecaptchaConfig(
+    siteKeyV2: 'v2-key',
+    secretV2: 'v2-secret',
+    siteKeyV3: 'v3-key',
+    secretV3: 'v3-secret',
+    verifyUrl: 'https://www.google.com/recaptcha/api/siteverify',
+    sendRemoteIp: false,
+);
+```
+
+### RecaptchaClient
+
+```php
+$client = new RecaptchaClient(config: $config, httpClient: $http, requestFactory: $psr17, streamFactory: $psr17);
+
+$result = $client->verify(token: 'token', clientIp: '1.2.3.4');           // uses secretV2
+$result = $client->verifyV3(token: 'token', clientIp: '1.2.3.4');         // uses secretV3
+$result = $client->verifyWithSecret(token: 'token', secret: 'custom');    // uses custom secret
+```
+
+In the validator pipeline handlers resolve `clientIp` from the current request
+via `yiisoft/request-provider` (`RequestProviderInterface`, `REMOTE_ADDR`).
+
+### VerificationResult
+
+```php
+final readonly class VerificationResult
+{
+    public bool $success;
+    public array $errorCodes;   // string[]
+    public ?float $score;       // v3 only
+    public ?string $action;     // v3 only
+    public ?string $hostname;
+    public ?string $challengeTs;
+}
+```
+
+### RecaptchaV2Rule / RecaptchaV2RuleHandler
+
+```php
+#[RecaptchaV2Rule(message: 'Captcha failed', sendRemoteIp: true)]
+public string $gRecaptchaResponse = '';
+```
+
+### RecaptchaV3Rule / RecaptchaV3RuleHandler
+
+```php
+#[RecaptchaV3Rule(threshold: 0.5, action: 'login', scoreTooLowMessage: 'Low score')]
+public string $recaptchaToken = '';
+```
+
+v3 handler logic: `success && score >= threshold && (action === null || action === response.action)`.
+
+### Enums
+
+```php
+enum RecaptchaV2Theme: string { case Light = 'light'; case Dark = 'dark'; }
+enum RecaptchaV2Type: string  { case Image = 'image'; case Audio = 'audio'; }
+enum RecaptchaV2Size: string  { case Normal = 'normal'; case Compact = 'compact'; case Invisible = 'invisible'; }
+```
+
+### DI config
+
+```php
+// config/params.php
+return [
+    'rasuvaeff/yii3-recaptcha' => [
+        'siteKeyV2' => '',
+        'secretV2' => '',
+        'siteKeyV3' => '',
+        'secretV3' => '',
+        'translation.category' => 'yii3-recaptcha',
+    ],
+];
+```
