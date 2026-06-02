@@ -19,11 +19,18 @@ use Yiisoft\Validator\ValidationContext;
 final readonly class RecaptchaV2RuleHandler implements RuleHandlerInterface
 {
     public function __construct(
-        private RecaptchaClient $client,
+        private ?RecaptchaClient $client = null,
         private ?RequestProviderInterface $requestProvider = null,
         private ?TranslatorInterface $translator = null,
         private string $translationCategory = 'yii3-recaptcha',
     ) {}
+
+    private function client(): RecaptchaClient
+    {
+        return $this->client
+            ?? RecaptchaRegistry::client()
+            ?? throw new \RuntimeException('RecaptchaClient is not available. Ensure rasuvaeff/yii3-recaptcha bootstrap is registered.');
+    }
 
     #[\Override]
     public function validate(mixed $value, RuleInterface $rule, ValidationContext $context): Result
@@ -49,8 +56,8 @@ final readonly class RecaptchaV2RuleHandler implements RuleHandlerInterface
 
         $secret = $rule->getSecret();
         $verificationResult = $secret !== null
-            ? $this->client->verifyWithSecret(token: $value, secret: $secret, clientIp: $clientIp)
-            : $this->client->verify(token: $value, clientIp: $clientIp);
+            ? $this->client()->verifyWithSecret(token: $value, secret: $secret, clientIp: $clientIp)
+            : $this->client()->verify(token: $value, clientIp: $clientIp);
 
         if (!$verificationResult->success) {
             return $result->addError(
