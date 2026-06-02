@@ -78,27 +78,23 @@ class LoginForm
 }
 ```
 
-> **Important — field name mapping with Yii3 FormModel**
+> **Field name mapping with Yii3 FormModel**
 >
 > Google's reCAPTCHA v2 widget always submits the response token as
 > `g-recaptcha-response` (with hyphens). PHP does **not** normalize hyphens in POST
 > keys, so `FormModel` will never receive the token if it expects `gRecaptchaResponse`
 > directly.
 >
-> Fix: add a hidden input bound to the model property and copy the token via
-> `withCallback()`:
+> Use `withResponseFieldName()` to bind the token to your model property automatically
+> — the widget renders a hidden input and the required JS copy callback:
 >
-> ```html+php
-> <!-- hidden input that FormModel reads -->
-> <input type="hidden" name="gRecaptchaResponse" id="gRecaptchaResponse" value="">
+> ```php
+> <?= RecaptchaV2::widget()->withResponseFieldName('gRecaptchaResponse') ?>
+> ```
 >
-> <?= RecaptchaV2::widget()->withCallback('recaptchaOnSuccess') ?>
->
-> <script>
-> function recaptchaOnSuccess(token) {
->     document.getElementById('gRecaptchaResponse').value = token;
-> }
-> </script>
+> ```php
+> #[RecaptchaV2Rule]
+> public string $gRecaptchaResponse = '';
 > ```
 
 ### reCAPTCHA v3

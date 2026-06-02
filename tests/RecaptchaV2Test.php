@@ -328,4 +328,62 @@ final class RecaptchaV2Test extends TestCase
         $this->assertStringContainsString('\\u0027', $html);
         $this->assertStringContainsString('\\u0026', $html);
     }
+
+    #[Test]
+    public function withResponseFieldNameRendersHiddenInput(): void
+    {
+        $html = RecaptchaV2::widget()
+            ->withSiteKey('key')
+            ->withResponseFieldName('gRecaptchaResponse')
+            ->render();
+
+        $this->assertStringContainsString('name="gRecaptchaResponse"', $html);
+        $this->assertStringContainsString('type="hidden"', $html);
+    }
+
+    #[Test]
+    public function withResponseFieldNameRendersInlineCopyCallback(): void
+    {
+        $html = RecaptchaV2::widget()
+            ->withSiteKey('key')
+            ->withResponseFieldName('gRecaptchaResponse')
+            ->render();
+
+        $this->assertStringContainsString('recaptchaFieldCopy_', $html);
+        $this->assertStringContainsString('.value=t', $html);
+    }
+
+    #[Test]
+    public function withResponseFieldNameChainsUserCallback(): void
+    {
+        $html = RecaptchaV2::widget()
+            ->withSiteKey('key')
+            ->withResponseFieldName('gRecaptchaResponse')
+            ->withCallback('myCallback')
+            ->render();
+
+        $this->assertStringContainsString('myCallback', $html);
+        $this->assertStringContainsString('.value=t', $html);
+    }
+
+    #[Test]
+    public function withResponseFieldNameDoesNotMutateOriginal(): void
+    {
+        $original = RecaptchaV2::widget()->withSiteKey('key');
+        $modified = $original->withResponseFieldName('gRecaptchaResponse');
+
+        $this->assertStringNotContainsString('gRecaptchaResponse', $original->render());
+        $this->assertStringContainsString('gRecaptchaResponse', $modified->render());
+    }
+
+    #[Test]
+    public function withResponseFieldNameXssSafeFieldId(): void
+    {
+        $html = RecaptchaV2::widget()
+            ->withSiteKey('key')
+            ->withResponseFieldName('field<"\'&name')
+            ->render();
+
+        $this->assertStringNotContainsString('field<', $html);
+    }
 }

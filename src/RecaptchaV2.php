@@ -20,6 +20,7 @@ final class RecaptchaV2 extends Widget
     private RecaptchaV2Type $type = RecaptchaV2Type::Image;
     private RecaptchaV2Size $size = RecaptchaV2Size::Normal;
     private string $jsApiUrl = self::JS_API_URL;
+    private ?string $responseFieldName = null;
     private ?string $callback = null;
     private ?string $expiredCallback = null;
     private ?string $errorCallback = null;
@@ -80,6 +81,14 @@ final class RecaptchaV2 extends Widget
         return $new;
     }
 
+    public function withResponseFieldName(string $name): self
+    {
+        $new = clone $this;
+        $new->responseFieldName = $name;
+
+        return $new;
+    }
+
     public function withCallback(string $callback): self
     {
         $new = clone $this;
@@ -111,17 +120,37 @@ final class RecaptchaV2 extends Widget
         $id = $this->id ?? Html::generateId('recaptcha-v2-');
         $callback = 'recaptchaOnload_' . (string) preg_replace('/[^A-Za-z0-9_]/', '_', $id);
 
+        $flags = JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP;
+
+        $userCallback = $this->callback;
+        $hiddenInput = '';
+
+        if ($this->responseFieldName !== null) {
+            $fieldId = $id . '-response';
+            $fieldIdJson = json_encode($fieldId, $flags);
+            $copyCallback = 'recaptchaFieldCopy_' . (string) preg_replace('/[^A-Za-z0-9_]/', '_', $id);
+
+            $chain = $userCallback !== null ? json_encode($userCallback, $flags) . '(t);' : '';
+            $hiddenInput = Html::hiddenInput($this->responseFieldName)
+                ->attribute('id', $fieldId)
+                ->render();
+            $hiddenInput .= "\n" . Html::script(
+                "function {$copyCallback}(t){document.getElementById({$fieldIdJson}).value=t;{$chain}}"
+            )->render();
+
+            $userCallback = $copyCallback;
+        }
+
         $params = array_filter([
             'sitekey' => $siteKey,
             'theme' => $this->theme->value,
             'type' => $this->type->value,
             'size' => $this->size->value,
-            'callback' => $this->callback,
+            'callback' => $userCallback,
             'expired-callback' => $this->expiredCallback,
             'error-callback' => $this->errorCallback,
         ]);
 
-        $flags = JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP;
         $idJson = json_encode($id, $flags);
         $paramsJson = json_encode($params, $flags);
 
@@ -137,6 +166,7 @@ final class RecaptchaV2 extends Widget
             ->attribute('defer', '')
             ->render();
 
-        return $initScript . "\n" . Html::div('')->attribute('id', $id)->render() . "\n" . $apiScript;
+        return $hiddenInput . ($hiddenInput !== '' ? "\n" : '')
+            . $initScript . "\n" . Html::div('')->attribute('id', $id)->render() . "\n" . $apiScript;
     }
 }
