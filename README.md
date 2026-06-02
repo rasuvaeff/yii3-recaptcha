@@ -43,6 +43,26 @@ composer require guzzlehttp/guzzle nyholm/psr7
 # or another PSR-18 client plus PSR-17 factories
 ```
 
+### DI configuration (required)
+
+`yiisoft/validator` defaults to `SimpleRuleHandlerContainer`, which cannot resolve
+rule handlers that have constructor dependencies. Add this to your application DI
+config so the handlers are resolved through the container:
+
+```php
+// config/common/di/validator.php
+use Yiisoft\Validator\RuleHandlerResolver\RuleHandlerContainer;
+use Yiisoft\Validator\RuleHandlerResolverInterface;
+
+return [
+    RuleHandlerResolverInterface::class => RuleHandlerContainer::class,
+];
+```
+
+This is a one-time setup per application, regardless of how many validator-based
+packages you install. It cannot be shipped by the package itself because
+`yiisoft/config` does not allow two vendor packages to define the same DI key.
+
 ## Usage
 
 ### reCAPTCHA v2
