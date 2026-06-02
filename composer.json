@@ -71,9 +71,9 @@
     },
     "extra": {
         "config-plugin": {
+            "bootstrap": "bootstrap.php",
             "di": "di.php",
-            "params": "params.php",
-            "bootstrap": "bootstrap.php"
+            "params": "params.php"
         },
         "config-plugin-options": {
             "source-directory": "config"

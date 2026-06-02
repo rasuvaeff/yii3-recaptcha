@@ -97,11 +97,12 @@ final readonly class RecaptchaV3RuleHandler implements RuleHandlerInterface
 
     private function translate(string $message): string
     {
-        if ($this->translator === null) {
+        $translator = $this->translator ?? RecaptchaRegistry::translator();
+        if ($translator === null) {
             return $message;
         }
 
-        return $this->translator->translate(
+        return $translator->translate(
             $message,
             [],
             $this->translationCategory,
@@ -110,12 +111,13 @@ final readonly class RecaptchaV3RuleHandler implements RuleHandlerInterface
 
     private function resolveClientIp(): ?string
     {
-        if ($this->requestProvider === null) {
+        $provider = $this->requestProvider ?? RecaptchaRegistry::requestProvider();
+        if ($provider === null) {
             return null;
         }
 
         try {
-            $serverParams = $this->requestProvider->get()->getServerParams();
+            $serverParams = $provider->get()->getServerParams();
         } catch (RequestNotSetException) {
             return null;
         }

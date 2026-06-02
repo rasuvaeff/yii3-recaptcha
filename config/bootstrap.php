@@ -8,10 +8,8 @@ use Rasuvaeff\Yii3Recaptcha\RecaptchaRegistry;
 use Yiisoft\RequestProvider\RequestProviderInterface;
 use Yiisoft\Translator\TranslatorInterface;
 
-/** @var array $params */
-
 return [
-    static function (ContainerInterface $container) use ($params): void {
+    static function (ContainerInterface $container): void {
         RecaptchaRegistry::configure(
             client: $container->get(RecaptchaClient::class),
             requestProvider: $container->has(RequestProviderInterface::class)
@@ -20,7 +18,6 @@ return [
             translator: $container->has(TranslatorInterface::class)
                 ? $container->get(TranslatorInterface::class)
                 : null,
-            translationCategory: $params['rasuvaeff/yii3-recaptcha']['translation.category'],
         );
     },
 ];
