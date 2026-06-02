@@ -234,4 +234,98 @@ final class RecaptchaV2Test extends TestCase
         $this->assertStringNotContainsString('</script><script>', $html);
         $this->assertStringNotContainsString("alert('xss')", $html);
     }
+
+    #[Test]
+    public function withIdDoesNotMutateOriginal(): void
+    {
+        $original = RecaptchaV2::widget()->withSiteKey('key')->withId('original');
+        $modified = $original->withId('changed');
+
+        $this->assertStringContainsString('id="original"', $original->render());
+        $this->assertStringContainsString('id="changed"', $modified->render());
+    }
+
+    #[Test]
+    public function withThemeDoesNotMutateOriginal(): void
+    {
+        $original = RecaptchaV2::widget()->withSiteKey('key');
+        $modified = $original->withTheme(RecaptchaV2Theme::Dark);
+
+        $this->assertStringContainsString('"theme":"light"', $original->render());
+        $this->assertStringContainsString('"theme":"dark"', $modified->render());
+    }
+
+    #[Test]
+    public function withTypeDoesNotMutateOriginal(): void
+    {
+        $original = RecaptchaV2::widget()->withSiteKey('key');
+        $modified = $original->withType(RecaptchaV2Type::Audio);
+
+        $this->assertStringContainsString('"type":"image"', $original->render());
+        $this->assertStringContainsString('"type":"audio"', $modified->render());
+    }
+
+    #[Test]
+    public function withSizeDoesNotMutateOriginal(): void
+    {
+        $original = RecaptchaV2::widget()->withSiteKey('key');
+        $modified = $original->withSize(RecaptchaV2Size::Compact);
+
+        $this->assertStringContainsString('"size":"normal"', $original->render());
+        $this->assertStringContainsString('"size":"compact"', $modified->render());
+    }
+
+    #[Test]
+    public function withJsApiUrlDoesNotMutateOriginal(): void
+    {
+        $original = RecaptchaV2::widget()->withSiteKey('key');
+        $modified = $original->withJsApiUrl('https://custom.example.com/api.js');
+
+        $this->assertStringContainsString('https://www.google.com/recaptcha/api.js', $original->render());
+        $this->assertStringContainsString('https://custom.example.com/api.js', $modified->render());
+    }
+
+    #[Test]
+    public function withCallbackDoesNotMutateOriginal(): void
+    {
+        $original = RecaptchaV2::widget()->withSiteKey('key');
+        $modified = $original->withCallback('onSuccess');
+
+        $this->assertStringNotContainsString('"callback"', $original->render());
+        $this->assertStringContainsString('"callback":"onSuccess"', $modified->render());
+    }
+
+    #[Test]
+    public function withExpiredCallbackDoesNotMutateOriginal(): void
+    {
+        $original = RecaptchaV2::widget()->withSiteKey('key');
+        $modified = $original->withExpiredCallback('onExpired');
+
+        $this->assertStringNotContainsString('"expired-callback"', $original->render());
+        $this->assertStringContainsString('"expired-callback":"onExpired"', $modified->render());
+    }
+
+    #[Test]
+    public function withErrorCallbackDoesNotMutateOriginal(): void
+    {
+        $original = RecaptchaV2::widget()->withSiteKey('key');
+        $modified = $original->withErrorCallback('onError');
+
+        $this->assertStringNotContainsString('"error-callback"', $original->render());
+        $this->assertStringContainsString('"error-callback":"onError"', $modified->render());
+    }
+
+    #[Test]
+    public function jsonEncodingUsesXssSafeFlags(): void
+    {
+        $html = RecaptchaV2::widget()
+            ->withSiteKey('key')
+            ->withId('test<"\'&id')
+            ->render();
+
+        $this->assertStringContainsString('\\u003C', $html);
+        $this->assertStringContainsString('\\u0022', $html);
+        $this->assertStringContainsString('\\u0027', $html);
+        $this->assertStringContainsString('\\u0026', $html);
+    }
 }

@@ -240,4 +240,84 @@ final class RecaptchaV3Test extends TestCase
         $this->assertStringNotContainsString('"});alert', $html);
         $this->assertStringContainsString('{action: "\\u0022});alert(1);\\/\\/"}', $html);
     }
+
+    #[Test]
+    public function withFieldNameDoesNotMutateOriginal(): void
+    {
+        $original = RecaptchaV3::widget()->withSiteKey('key');
+        $modified = $original->withFieldName('captchaToken');
+
+        $this->assertStringContainsString('name="g-recaptcha-response"', $original->render());
+        $this->assertStringContainsString('name="captchaToken"', $modified->render());
+    }
+
+    #[Test]
+    public function withFieldIdDoesNotMutateOriginal(): void
+    {
+        $original = RecaptchaV3::widget()->withSiteKey('key')->withFieldId('original-id');
+        $modified = $original->withFieldId('new-id');
+
+        $this->assertStringContainsString('id="original-id"', $original->render());
+        $this->assertStringContainsString('id="new-id"', $modified->render());
+    }
+
+    #[Test]
+    public function withFormIdDoesNotMutateOriginal(): void
+    {
+        $original = RecaptchaV3::widget()->withSiteKey('key');
+        $modified = $original->withFormId('login-form');
+
+        $this->assertStringNotContainsString('document.getElementById("login-form")', $original->render());
+        $this->assertStringContainsString('document.getElementById("login-form")', $modified->render());
+    }
+
+    #[Test]
+    public function withBadgeDoesNotMutateOriginal(): void
+    {
+        $original = RecaptchaV3::widget()->withSiteKey('key');
+        $modified = $original->withBadge(RecaptchaV3Badge::Hidden);
+
+        $this->assertStringNotContainsString('visibility: hidden', $original->render());
+        $this->assertStringContainsString('visibility: hidden', $modified->render());
+    }
+
+    #[Test]
+    public function withJsApiUrlDoesNotMutateOriginal(): void
+    {
+        $original = RecaptchaV3::widget()->withSiteKey('key');
+        $modified = $original->withJsApiUrl('https://custom.example.com/api.js');
+
+        $this->assertStringContainsString('https://www.google.com/recaptcha/api.js', $original->render());
+        $this->assertStringContainsString('https://custom.example.com/api.js', $modified->render());
+    }
+
+    #[Test]
+    public function jsonEncodingUsesXssSafeFlags(): void
+    {
+        $html = RecaptchaV3::widget()->withSiteKey('<"key&\'')->render();
+
+        $this->assertStringContainsString('\\u003C', $html);
+        $this->assertStringContainsString('\\u0022', $html);
+        $this->assertStringContainsString('\\u0026', $html);
+    }
+
+    #[Test]
+    public function noFormIdRenderStartsWithGrecaptchaReady(): void
+    {
+        $html = RecaptchaV3::widget()->withSiteKey('key')->withFieldId('tid')->render();
+
+        $scriptContent = '';
+        if (preg_match('/<script>(.*?)<\/script>/s', $html, $m)) {
+            $scriptContent = $m[1];
+        }
+        $this->assertStringStartsWith('grecaptcha.ready(', trim($scriptContent));
+    }
+
+    #[Test]
+    public function bottomLeftBadgeOutputPrecedesStyleWithNewline(): void
+    {
+        $html = RecaptchaV3::widget()->withSiteKey('key')->withBadge(RecaptchaV3Badge::BottomLeft)->render();
+
+        $this->assertMatchesRegularExpression("/\\n<style>/", $html);
+    }
 }

@@ -43,25 +43,15 @@ composer require guzzlehttp/guzzle nyholm/psr7
 # or another PSR-18 client plus PSR-17 factories
 ```
 
-### DI configuration (required)
+### DI configuration
 
-`yiisoft/validator` defaults to `SimpleRuleHandlerContainer`, which cannot resolve
-rule handlers that have constructor dependencies. Add this to your application DI
-config so the handlers are resolved through the container:
+Since v1.0.5 the package ships `config/bootstrap.php` via `config-plugin`. On every
+application boot it populates `RecaptchaRegistry` with the handler dependencies, so
+`RecaptchaV2RuleHandler` / `RecaptchaV3RuleHandler` work even with the default
+`SimpleRuleHandlerContainer` — **no extra DI config required**.
 
-```php
-// config/common/di/validator.php
-use Yiisoft\Validator\RuleHandlerResolver\RuleHandlerContainer;
-use Yiisoft\Validator\RuleHandlerResolverInterface;
-
-return [
-    RuleHandlerResolverInterface::class => RuleHandlerContainer::class,
-];
-```
-
-This is a one-time setup per application, regardless of how many validator-based
-packages you install. It cannot be shipped by the package itself because
-`yiisoft/config` does not allow two vendor packages to define the same DI key.
+If your app already uses `RuleHandlerContainer` for other reasons, keep it; this
+package is compatible with both resolvers.
 
 ## Usage
 
@@ -87,6 +77,29 @@ class LoginForm
     public string $gRecaptchaResponse = '';
 }
 ```
+
+> **Important — field name mapping with Yii3 FormModel**
+>
+> Google's reCAPTCHA v2 widget always submits the response token as
+> `g-recaptcha-response` (with hyphens). PHP does **not** normalize hyphens in POST
+> keys, so `FormModel` will never receive the token if it expects `gRecaptchaResponse`
+> directly.
+>
+> Fix: add a hidden input bound to the model property and copy the token via
+> `withCallback()`:
+>
+> ```html+php
+> <!-- hidden input that FormModel reads -->
+> <input type="hidden" name="gRecaptchaResponse" id="gRecaptchaResponse" value="">
+>
+> <?= RecaptchaV2::widget()->withCallback('recaptchaOnSuccess') ?>
+>
+> <script>
+> function recaptchaOnSuccess(token) {
+>     document.getElementById('gRecaptchaResponse').value = token;
+> }
+> </script>
+> ```
 
 ### reCAPTCHA v3
 

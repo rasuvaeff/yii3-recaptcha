@@ -236,6 +236,43 @@ final class RecaptchaV3RuleHandlerTest extends TestCase
         $this->handler->validate('token', $this->createMock(RuleInterface::class), new ValidationContext());
     }
 
+    #[Test]
+    public function scoreTooLowErrorContainsActualScoreInParameters(): void
+    {
+        $this->mockResponse = new Response(200, [], '{"success":true,"score":0.3,"action":"login"}');
+
+        $context = (new ValidationContext())->setPropertyLabel('captcha');
+        $result = $this->handler->validate('token', new RecaptchaV3Rule(threshold: 0.5), $context);
+
+        $this->assertFalse($result->isValid());
+        $params = $result->getErrors()[0]->getParameters();
+        $this->assertSame('0.3', $params['score']);
+        $this->assertSame('0.5', $params['threshold']);
+    }
+
+    #[Test]
+    public function nullScoreUsesZeroInErrorParameters(): void
+    {
+        $this->mockResponse = new Response(200, [], '{"success":true}');
+
+        $context = (new ValidationContext())->setPropertyLabel('captcha');
+        $result = $this->handler->validate('token', new RecaptchaV3Rule(threshold: 0.5), $context);
+
+        $this->assertFalse($result->isValid());
+        $params = $result->getErrors()[0]->getParameters();
+        $this->assertSame('0', $params['score']);
+    }
+
+    #[Test]
+    public function scoreEqualToThresholdPasses(): void
+    {
+        $this->mockResponse = new Response(200, [], '{"success":true,"score":0.5,"action":"login"}');
+
+        $result = $this->handler->validate('token', new RecaptchaV3Rule(threshold: 0.5), new ValidationContext());
+
+        $this->assertTrue($result->isValid());
+    }
+
     private function createClient(bool $sendRemoteIp = false): RecaptchaClient
     {
         $config = new RecaptchaConfig(secretV3: 'test-secret-v3', sendRemoteIp: $sendRemoteIp);

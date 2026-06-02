@@ -125,4 +125,51 @@ final class RecaptchaClientTest extends TestCase
         $body = $this->lastRequest->getBody()->__toString();
         $this->assertStringContainsString('secret=v3-secret', $body);
     }
+
+    #[Test]
+    public function verifyWithoutClientIpOmitsRemoteIp(): void
+    {
+        $this->currentResponse = new Response(200, [], '{"success":true}');
+
+        $this->client->verify(token: 'token');
+
+        $this->assertNotNull($this->lastRequest);
+        $body = $this->lastRequest->getBody()->__toString();
+        $this->assertStringNotContainsString('remoteip', $body);
+    }
+
+    #[Test]
+    public function verifyWithSendRemoteIpButNoIpOmitsRemoteIp(): void
+    {
+        $config = new RecaptchaConfig(secretV2: 'test-secret', sendRemoteIp: true);
+        $psr17 = new Psr17Factory();
+        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient->method('sendRequest')->willReturnCallback(
+            function (RequestInterface $request): Response {
+                $this->lastRequest = $request;
+
+                return new Response(200, [], '{"success":true}');
+            },
+        );
+        $client = new RecaptchaClient(config: $config, httpClient: $httpClient, requestFactory: $psr17, streamFactory: $psr17);
+
+        $client->verify(token: 'token');
+
+        $this->assertNotNull($this->lastRequest);
+        $this->assertStringNotContainsString('remoteip', $this->lastRequest->getBody()->__toString());
+    }
+
+    #[Test]
+    public function verifyParsesDeeplyNestedJson(): void
+    {
+        $deepArray = array_fill(0, 100, 'x');
+        $deepJson = json_encode($deepArray, JSON_THROW_ON_ERROR);
+        $payload = '{"success":true,"deep":' . $deepJson . '}';
+
+        $this->currentResponse = new Response(200, [], $payload);
+
+        $result = $this->client->verify(token: 'token');
+
+        $this->assertTrue($result->success);
+    }
 }

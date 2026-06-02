@@ -22,6 +22,8 @@ use Yiisoft\Translator\IntlMessageFormatter;
 use Yiisoft\Translator\Message\Php\MessageSource;
 use Yiisoft\Translator\SimpleMessageFormatter;
 use Yiisoft\Translator\Translator;
+use Yiisoft\Validator\Exception\UnexpectedRuleException;
+use Yiisoft\Validator\RuleInterface;
 use Yiisoft\Validator\ValidationContext;
 
 #[CoversClass(RecaptchaV2Rule::class)]
@@ -152,5 +154,55 @@ final class RecaptchaV2RuleHandlerTest extends TestCase
 
         $this->assertFalse($result->isValid());
         $this->assertContains('Проверка CAPTCHA не удалась.', $result->getErrorMessages());
+    }
+
+    #[Test]
+    public function throwsOnUnexpectedRule(): void
+    {
+        $this->expectException(UnexpectedRuleException::class);
+
+        $this->handler->validate('token', $this->createMock(RuleInterface::class), new ValidationContext());
+    }
+
+    #[Test]
+    public function emptyValueErrorContainsPropertyParameter(): void
+    {
+        $context = (new ValidationContext())->setPropertyLabel('captcha');
+        $result = $this->handler->validate('', new RecaptchaV2Rule(), $context);
+
+        $this->assertFalse($result->isValid());
+        $this->assertSame(['property' => 'captcha'], $result->getErrors()[0]->getParameters());
+    }
+
+    #[Test]
+    public function verificationFailureErrorContainsAllParameters(): void
+    {
+        $this->mockResponse = new Response(200, [], '{"success":false,"error-codes":["invalid-input-response"]}');
+
+        $context = (new ValidationContext())->setPropertyLabel('captcha');
+        $result = $this->handler->validate('token', new RecaptchaV2Rule(), $context);
+
+        $this->assertFalse($result->isValid());
+        $this->assertSame(
+            ['property' => 'captcha', 'errorCodes' => 'invalid-input-response'],
+            $result->getErrors()[0]->getParameters(),
+        );
+    }
+
+    #[Test]
+    public function resolveClientIpReturnsNullWhenRemoteAddrNotSet(): void
+    {
+        $this->mockResponse = new Response(200, [], '{"success":true}');
+
+        $requestProvider = new RequestProvider(
+            new ServerRequest('POST', 'http://app.test', serverParams: []),
+        );
+        $handler = new RecaptchaV2RuleHandler(client: $this->client, requestProvider: $requestProvider);
+
+        $result = $handler->validate('token', new RecaptchaV2Rule(sendRemoteIp: true), new ValidationContext());
+
+        $this->assertTrue($result->isValid());
+        $this->assertNotNull($this->lastRequest);
+        $this->assertStringNotContainsString('remoteip=', $this->lastRequest->getBody()->__toString());
     }
 }

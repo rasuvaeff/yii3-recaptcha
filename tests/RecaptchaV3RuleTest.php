@@ -85,4 +85,20 @@ final class RecaptchaV3RuleTest extends TestCase
         yield 'below zero' => [-0.1];
         yield 'above one' => [1.1];
     }
+
+    #[Test]
+    public function thresholdZeroIsValid(): void
+    {
+        $rule = new RecaptchaV3Rule(threshold: 0.0);
+
+        $this->assertSame(0.0, $rule->getThreshold());
+    }
+
+    #[Test]
+    public function thresholdOneIsValid(): void
+    {
+        $rule = new RecaptchaV3Rule(threshold: 1.0);
+
+        $this->assertSame(1.0, $rule->getThreshold());
+    }
 }
