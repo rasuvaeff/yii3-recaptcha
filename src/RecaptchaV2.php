@@ -135,7 +135,7 @@ final class RecaptchaV2 extends Widget
                 ->attribute('id', $fieldId)
                 ->render();
             $hiddenInput .= "\n" . Html::script(
-                "function {$copyCallback}(t){document.getElementById({$fieldIdJson}).value=t;{$chain}}"
+                "function {$copyCallback}(t){document.getElementById({$fieldIdJson}).value=t;{$chain}}",
             )->render();
 
             $userCallback = $copyCallback;
