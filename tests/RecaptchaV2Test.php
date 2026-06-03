@@ -386,4 +386,112 @@ final class RecaptchaV2Test extends TestCase
 
         $this->assertStringNotContainsString('field<', $html);
     }
+
+    #[Test]
+    public function withResponseFieldNameUsesIdPrefixedFieldId(): void
+    {
+        $html = RecaptchaV2::widget()
+            ->withSiteKey('key')
+            ->withId('my-rc')
+            ->withResponseFieldName('g-recaptcha-response')
+            ->render();
+
+        // fieldId must be "{id}-response", not "-response" alone or just "{id}"
+        $this->assertStringContainsString('id="my-rc-response"', $html);
+        $this->assertStringNotContainsString('id="-response"', $html);
+    }
+
+    #[Test]
+    public function withResponseFieldNameEmbedsCopyCallbackWithIdSuffix(): void
+    {
+        $html = RecaptchaV2::widget()
+            ->withSiteKey('key')
+            ->withId('my-rc')
+            ->withResponseFieldName('g-recaptcha-response')
+            ->render();
+
+        // copyCallback must be "recaptchaFieldCopy_{sanitised-id}", not just "recaptchaFieldCopy_"
+        $this->assertStringContainsString('recaptchaFieldCopy_my_rc', $html);
+        $this->assertStringNotContainsString('function recaptchaFieldCopy_(', $html);
+    }
+
+    #[Test]
+    public function withResponseFieldNameCopyCallbackChainIncludesCallSuffix(): void
+    {
+        $html = RecaptchaV2::widget()
+            ->withSiteKey('key')
+            ->withId('rc')
+            ->withResponseFieldName('resp')
+            ->withCallback('myFn')
+            ->render();
+
+        // chain must be `"myFn"(t);` — not just `"myFn"` without the call
+        $this->assertStringContainsString('"myFn"(t);', $html);
+    }
+
+    #[Test]
+    public function withResponseFieldNameHiddenBlockPrecedesInitScript(): void
+    {
+        $html = RecaptchaV2::widget()
+            ->withSiteKey('key')
+            ->withId('rc')
+            ->withResponseFieldName('resp')
+            ->render();
+
+        // hidden input block must come before the init script block
+        $hiddenPos = strpos($html, 'type="hidden"');
+        $initPos   = strpos($html, 'function recaptchaOnload_');
+
+        $this->assertNotFalse($hiddenPos);
+        $this->assertNotFalse($initPos);
+        $this->assertLessThan($initPos, $hiddenPos);
+    }
+
+    #[Test]
+    public function withResponseFieldNameRendersExactMarkup(): void
+    {
+        $html = RecaptchaV2::widget()
+            ->withSiteKey('key')
+            ->withId('rc')
+            ->withResponseFieldName('resp')
+            ->render();
+
+        // The two hidden-block lines must be joined by "\n" (newline between them)
+        $this->assertStringContainsString(
+            '<input type="hidden" name="resp" id="rc-response">'
+            . "\n"
+            . '<script>function recaptchaFieldCopy_rc(t){document.getElementById("rc-response").value=t;}</script>',
+            $html,
+        );
+
+        // There must be a newline between the hidden block and the init script
+        $this->assertStringContainsString(
+            '</script>' . "\n" . '<script>function recaptchaOnload_rc()',
+            $html,
+        );
+    }
+
+    #[Test]
+    public function withResponseFieldNameFullOutputOrder(): void
+    {
+        $html = RecaptchaV2::widget()
+            ->withSiteKey('key')
+            ->withId('rc')
+            ->withResponseFieldName('resp')
+            ->render();
+
+        // Expected order: hiddenInput block \n initScript \n div \n apiScript
+        $expected
+            = '<input type="hidden" name="resp" id="rc-response">'
+            . "\n"
+            . '<script>function recaptchaFieldCopy_rc(t){document.getElementById("rc-response").value=t;}</script>'
+            . "\n"
+            . '<script>function recaptchaOnload_rc() { grecaptcha.render("rc", {"sitekey":"key","theme":"light","type":"image","size":"normal","callback":"recaptchaFieldCopy_rc"}); }</script>'
+            . "\n"
+            . '<div id="rc"></div>'
+            . "\n"
+            . '<script src="https://www.google.com/recaptcha/api.js?onload=recaptchaOnload_rc&amp;render=explicit" async defer></script>';
+
+        $this->assertSame($expected, $html);
+    }
 }
