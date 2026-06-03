@@ -7,6 +7,12 @@
         "text": "build/infection-log.txt"
     },
     "tmpDir": "build/infection",
-    "minMsi": 85,
-    "minCoveredMsi": 85
+    "minMsi": 100,
+    "minCoveredMsi": 100,
+    "mutators": {
+        "@default": true,
+        "CastString": {
+            "ignoreSourceCodeByRegex": [".*\\(string\\) preg_replace.*"]
+        }
+    }
 }
