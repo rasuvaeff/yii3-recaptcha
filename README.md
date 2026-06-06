@@ -294,6 +294,8 @@ Same as v2, plus:
 ## Examples
 
 See [examples/](examples/) for runnable scripts.
+Examples are expected to execute without fatal errors and stay aligned with the
+documented public API.
 
 | Script | Shows | Needs server? |
 |--------|-------|:-------------:|
@@ -321,6 +323,9 @@ make install
 make build
 make cs-fix
 make test
+make test-coverage
+make mutation
+make release-check
 ```
 
 CI runs `composer build` on PHP 8.3, 8.4, and 8.5.

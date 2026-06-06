@@ -95,6 +95,11 @@
         "psalm": "psalm --no-cache",
         "rector": "rector process --dry-run",
         "rector:fix": "rector process",
+        "release-check": [
+            "@build",
+            "@rector",
+            "@bc-check"
+        ],
         "require-checker": "composer-require-checker check composer.json",
         "test": "phpunit",
         "test:coverage": "phpunit --coverage-text --coverage-clover=build/coverage.xml",
