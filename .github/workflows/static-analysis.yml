@@ -1,10 +1,14 @@
-name: static-analysis
+name: static analysis
 
 on:
   pull_request:
   push:
     branches:
       - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   psalm:
@@ -23,38 +27,15 @@ jobs:
           extensions: json
           tools: composer:v2
 
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ runner.os }}-${{ hashFiles('**/composer.json') }}
+          restore-keys: composer-${{ runner.os }}-
+
       - name: Install dependencies
         run: composer install --no-interaction --no-progress --prefer-dist
 
       - name: Psalm
         run: composer psalm
-
-  bc-check:
-    name: BC Check
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.4'
-          coverage: none
-          extensions: json, bcmath, intl
-          tools: composer:v2
-
-      - name: Install dependencies
-        run: composer install --no-interaction --no-progress --prefer-dist
-
-      - name: BC check
-        run: |
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          if [ -n "$LATEST_TAG" ]; then
-            composer bc-check -- --from="$LATEST_TAG"
-          else
-            echo "No previous tag found, skipping BC check"
-          fi

@@ -10,10 +10,13 @@ use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaConfig;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV3;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV3Badge;
+use Rasuvaeff\Yii3Recaptcha\Tests\Support\NormalizesHtml;
 
 #[CoversClass(RecaptchaV3::class)]
 final class RecaptchaV3Test extends TestCase
 {
+    use NormalizesHtml;
+
     #[Test]
     public function rendersWithSiteKey(): void
     {
@@ -165,8 +168,7 @@ final class RecaptchaV3Test extends TestCase
             ->withBadge(RecaptchaV3Badge::Hidden)
             ->render();
 
-        $this->assertSame(
-            '<script src="https://www.google.com/recaptcha/api.js?render=key"></script>'
+        $expected = '<script src="https://www.google.com/recaptcha/api.js?render=key"></script>'
             . "\n"
             . '<input type="hidden" name="g-recaptcha-response" id="token-id">'
             . "\n"
@@ -174,9 +176,10 @@ final class RecaptchaV3Test extends TestCase
             . "\n"
             . '<style>.grecaptcha-badge { visibility: hidden; }</style>'
             . "\n"
-            . '<p class="recaptcha-v3-notice">This site is protected by reCAPTCHA and the Google <a href="https://policies.google.com/privacy">Privacy Policy</a> and <a href="https://policies.google.com/terms">Terms of Service</a> apply.</p>',
-            $html,
-        );
+            . '<p class="recaptcha-v3-notice">This site is protected by reCAPTCHA and the Google <a href="https://policies.google.com/privacy">Privacy Policy</a> and <a href="https://policies.google.com/terms">Terms of Service</a> apply.</p>';
+
+        // Attribute order inside <input> varies across yiisoft/html versions.
+        $this->assertSame(self::normalizeInputAttributes($expected), self::normalizeInputAttributes($html));
     }
 
     #[Test]
