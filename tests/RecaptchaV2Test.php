@@ -12,10 +12,13 @@ use Rasuvaeff\Yii3Recaptcha\RecaptchaV2;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV2Size;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV2Theme;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV2Type;
+use Rasuvaeff\Yii3Recaptcha\Tests\Support\NormalizesHtml;
 
 #[CoversClass(RecaptchaV2::class)]
 final class RecaptchaV2Test extends TestCase
 {
+    use NormalizesHtml;
+
     #[Test]
     public function rendersWithSiteKey(): void
     {
@@ -456,12 +459,16 @@ final class RecaptchaV2Test extends TestCase
             ->withResponseFieldName('resp')
             ->render();
 
-        // The two hidden-block lines must be joined by "\n" (newline between them)
+        // The two hidden-block lines must be joined by "\n" (newline between them).
+        // Attribute order inside <input> varies across yiisoft/html versions, so
+        // normalize it before comparing.
         $this->assertStringContainsString(
-            '<input type="hidden" name="resp" id="rc-response">'
-            . "\n"
-            . '<script>function recaptchaFieldCopy_rc(t){document.getElementById("rc-response").value=t;}</script>',
-            $html,
+            self::normalizeInputAttributes(
+                '<input type="hidden" name="resp" id="rc-response">'
+                . "\n"
+                . '<script>function recaptchaFieldCopy_rc(t){document.getElementById("rc-response").value=t;}</script>',
+            ),
+            self::normalizeInputAttributes($html),
         );
 
         // There must be a newline between the hidden block and the init script
@@ -492,6 +499,6 @@ final class RecaptchaV2Test extends TestCase
             . "\n"
             . '<script src="https://www.google.com/recaptcha/api.js?onload=recaptchaOnload_rc&amp;render=explicit" async defer></script>';
 
-        $this->assertSame($expected, $html);
+        $this->assertSame(self::normalizeInputAttributes($expected), self::normalizeInputAttributes($html));
     }
 }
