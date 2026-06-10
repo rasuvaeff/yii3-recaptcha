@@ -4,7 +4,6 @@
 [![Total Downloads](https://img.shields.io/packagist/dt/rasuvaeff/yii3-recaptcha)](https://packagist.org/packages/rasuvaeff/yii3-recaptcha)
 [![Build](https://img.shields.io/github/actions/workflow/status/rasuvaeff/yii3-recaptcha/build.yml?branch=master)](https://github.com/rasuvaeff/yii3-recaptcha/actions)
 [![Static analysis](https://img.shields.io/github/actions/workflow/status/rasuvaeff/yii3-recaptcha/static-analysis.yml?branch=master&label=static%20analysis)](https://github.com/rasuvaeff/yii3-recaptcha/actions)
-[![Coverage](https://codecov.io/gh/rasuvaeff/yii3-recaptcha/branch/master/graph/badge.svg)](https://codecov.io/gh/rasuvaeff/yii3-recaptcha)
 [![Psalm level](https://img.shields.io/badge/psalm-level%201-141F48?logo=psalm&logoColor=white)](https://github.com/rasuvaeff/yii3-recaptcha/blob/master/psalm.xml)
 [![PHP](https://img.shields.io/packagist/dependency-v/rasuvaeff/yii3-recaptcha/php)](https://packagist.org/packages/rasuvaeff/yii3-recaptcha)
 [![License](https://img.shields.io/packagist/l/rasuvaeff/yii3-recaptcha)](LICENSE.md)
