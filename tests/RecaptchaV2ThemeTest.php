@@ -4,15 +4,22 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3Recaptcha\Tests;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV2Theme;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Data\DataProvider;
+use Testo\Test;
 
-#[CoversClass(RecaptchaV2Theme::class)]
-final class RecaptchaV2ThemeTest extends TestCase
+#[Test]
+#[Covers(RecaptchaV2Theme::class)]
+final class RecaptchaV2ThemeTest
 {
+    #[DataProvider('allCasesProvider')]
+    public function allCasesHaveNonEmptyValue(RecaptchaV2Theme $theme): void
+    {
+        Assert::true($theme->value !== '');
+    }
+
     /**
      * @return iterable<string, array{RecaptchaV2Theme}>
      */
@@ -21,12 +28,5 @@ final class RecaptchaV2ThemeTest extends TestCase
         foreach (RecaptchaV2Theme::cases() as $case) {
             yield $case->name => [$case];
         }
-    }
-
-    #[DataProvider('allCasesProvider')]
-    #[Test]
-    public function allCasesHaveNonEmptyValue(RecaptchaV2Theme $theme): void
-    {
-        $this->assertNotEmpty($theme->value);
     }
 }

@@ -4,28 +4,27 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3Recaptcha\Tests;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaConfig;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Test;
 
-#[CoversClass(RecaptchaConfig::class)]
-final class RecaptchaConfigTest extends TestCase
+#[Test]
+#[Covers(RecaptchaConfig::class)]
+final class RecaptchaConfigTest
 {
-    #[Test]
     public function createsWithDefaults(): void
     {
         $config = new RecaptchaConfig();
 
-        $this->assertSame('', $config->siteKeyV2);
-        $this->assertSame('', $config->secretV2);
-        $this->assertSame('', $config->siteKeyV3);
-        $this->assertSame('', $config->secretV3);
-        $this->assertSame('https://www.google.com/recaptcha/api/siteverify', $config->verifyUrl);
-        $this->assertFalse($config->sendRemoteIp);
+        Assert::same($config->siteKeyV2, '');
+        Assert::same($config->secretV2, '');
+        Assert::same($config->siteKeyV3, '');
+        Assert::same($config->secretV3, '');
+        Assert::same($config->verifyUrl, 'https://www.google.com/recaptcha/api/siteverify');
+        Assert::false($config->sendRemoteIp);
     }
 
-    #[Test]
     public function createsWithCustomValues(): void
     {
         $config = new RecaptchaConfig(
@@ -37,11 +36,11 @@ final class RecaptchaConfigTest extends TestCase
             sendRemoteIp: true,
         );
 
-        $this->assertSame('v2-key', $config->siteKeyV2);
-        $this->assertSame('v2-secret', $config->secretV2);
-        $this->assertSame('v3-key', $config->siteKeyV3);
-        $this->assertSame('v3-secret', $config->secretV3);
-        $this->assertSame('https://custom.example.com/verify', $config->verifyUrl);
-        $this->assertTrue($config->sendRemoteIp);
+        Assert::same($config->siteKeyV2, 'v2-key');
+        Assert::same($config->secretV2, 'v2-secret');
+        Assert::same($config->siteKeyV3, 'v3-key');
+        Assert::same($config->secretV3, 'v3-secret');
+        Assert::same($config->verifyUrl, 'https://custom.example.com/verify');
+        Assert::true($config->sendRemoteIp);
     }
 }
