@@ -4,29 +4,28 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3Recaptcha\Tests;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV2Rule;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV2RuleHandler;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Test;
 
-#[CoversClass(RecaptchaV2Rule::class)]
-final class RecaptchaV2RuleTest extends TestCase
+#[Test]
+#[Covers(RecaptchaV2Rule::class)]
+final class RecaptchaV2RuleTest
 {
-    #[Test]
     public function usesDefaults(): void
     {
         $rule = new RecaptchaV2Rule();
 
-        $this->assertSame('The CAPTCHA verification failed.', $rule->getMessage());
-        $this->assertNull($rule->getSecret());
-        $this->assertFalse($rule->getSendRemoteIp());
-        $this->assertNull($rule->getSkipOnEmpty());
-        $this->assertFalse($rule->shouldSkipOnError());
-        $this->assertNull($rule->getWhen());
+        Assert::same($rule->getMessage(), 'The CAPTCHA verification failed.');
+        Assert::null($rule->getSecret());
+        Assert::false($rule->getSendRemoteIp());
+        Assert::null($rule->getSkipOnEmpty());
+        Assert::false($rule->shouldSkipOnError());
+        Assert::null($rule->getWhen());
     }
 
-    #[Test]
     public function storesAllValues(): void
     {
         $when = static fn(): bool => true;
@@ -40,19 +39,18 @@ final class RecaptchaV2RuleTest extends TestCase
             when: $when,
         );
 
-        $this->assertSame('Prove you are human', $rule->getMessage());
-        $this->assertSame('override-secret', $rule->getSecret());
-        $this->assertTrue($rule->getSendRemoteIp());
-        $this->assertTrue($rule->getSkipOnEmpty());
-        $this->assertTrue($rule->shouldSkipOnError());
-        $this->assertSame($when, $rule->getWhen());
+        Assert::same($rule->getMessage(), 'Prove you are human');
+        Assert::same($rule->getSecret(), 'override-secret');
+        Assert::true($rule->getSendRemoteIp());
+        Assert::true($rule->getSkipOnEmpty());
+        Assert::true($rule->shouldSkipOnError());
+        Assert::same($rule->getWhen(), $when);
     }
 
-    #[Test]
     public function pointsToItsHandler(): void
     {
         $rule = new RecaptchaV2Rule();
 
-        $this->assertSame(RecaptchaV2RuleHandler::class, $rule->getHandler());
+        Assert::same($rule->getHandler(), RecaptchaV2RuleHandler::class);
     }
 }

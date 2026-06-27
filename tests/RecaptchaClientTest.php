@@ -6,160 +6,127 @@ namespace Rasuvaeff\Yii3Recaptcha\Tests;
 
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\Response;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
-use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaClient;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaConfig;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Expect;
+use Testo\Lifecycle\BeforeTest;
+use Testo\Test;
 
-#[CoversClass(RecaptchaClient::class)]
-final class RecaptchaClientTest extends TestCase
+#[Test]
+#[Covers(RecaptchaClient::class)]
+final class RecaptchaClientTest
 {
     private RecaptchaClient $client;
+
     private ?RequestInterface $lastRequest = null;
+
     private Response $currentResponse;
 
-    #[\Override]
-    protected function setUp(): void
+    #[BeforeTest]
+    public function setUp(): void
     {
-        $config = new RecaptchaConfig(secretV2: 'test-secret');
-        $psr17 = new Psr17Factory();
-        $httpClient = $this->createMock(ClientInterface::class);
-        $httpClient->method('sendRequest')->willReturnCallback(
-            function (RequestInterface $request): Response {
-                $this->lastRequest = $request;
-
-                return $this->currentResponse;
-            },
+        $this->client = $this->createClient(
+            config: new RecaptchaConfig(secretV2: 'test-secret'),
+            response: new Response(200, [], '{"success":true}'),
         );
-        $this->client = new RecaptchaClient(config: $config, httpClient: $httpClient, requestFactory: $psr17, streamFactory: $psr17);
     }
 
-    #[Test]
     public function verifyReturnsSuccess(): void
     {
         $this->currentResponse = new Response(200, [], '{"success":true}');
 
         $result = $this->client->verify(token: 'valid-token');
 
-        $this->assertTrue($result->success);
-        $this->assertSame([], $result->errorCodes);
+        Assert::true($result->success);
+        Assert::same($result->errorCodes, []);
     }
 
-    #[Test]
     public function verifyReturnsFailureWithCodes(): void
     {
         $this->currentResponse = new Response(200, [], '{"success":false,"error-codes":["invalid-input-response"]}');
 
         $result = $this->client->verify(token: 'bad-token');
 
-        $this->assertFalse($result->success);
-        $this->assertSame(['invalid-input-response'], $result->errorCodes);
+        Assert::false($result->success);
+        Assert::same($result->errorCodes, ['invalid-input-response']);
     }
 
-    #[Test]
     public function verifyReturnsScore(): void
     {
         $this->currentResponse = new Response(200, [], '{"success":true,"score":0.9,"action":"login"}');
 
         $result = $this->client->verify(token: 'token');
 
-        $this->assertSame(0.9, $result->score);
-        $this->assertSame('login', $result->action);
+        Assert::same($result->score, 0.9);
+        Assert::same($result->action, 'login');
     }
 
-    #[Test]
     public function verifySendsRemoteIp(): void
     {
-        $config = new RecaptchaConfig(secretV2: 'test-secret', sendRemoteIp: true);
-        $psr17 = new Psr17Factory();
-        $httpClient = $this->createMock(ClientInterface::class);
-        $httpClient->method('sendRequest')->willReturnCallback(
-            function (RequestInterface $request): Response {
-                $this->lastRequest = $request;
-
-                return new Response(200, [], '{"success":true}');
-            },
+        $client = $this->createClient(
+            config: new RecaptchaConfig(secretV2: 'test-secret', sendRemoteIp: true),
+            response: new Response(200, [], '{"success":true}'),
         );
-        $client = new RecaptchaClient(config: $config, httpClient: $httpClient, requestFactory: $psr17, streamFactory: $psr17);
 
         $client->verify(token: 'token', clientIp: '1.2.3.4');
 
-        $this->assertNotNull($this->lastRequest);
+        Assert::notNull($this->lastRequest);
         $body = $this->lastRequest->getBody()->__toString();
-        $this->assertStringContainsString('remoteip=1.2.3.4', $body);
+        Assert::string($body)->contains('remoteip=1.2.3.4');
     }
 
-    #[Test]
     public function verifyWithSecretUsesCustomSecret(): void
     {
         $this->currentResponse = new Response(200, [], '{"success":true}');
 
         $this->client->verifyWithSecret(token: 'token', secret: 'custom-secret');
 
-        $this->assertNotNull($this->lastRequest);
+        Assert::notNull($this->lastRequest);
         $body = $this->lastRequest->getBody()->__toString();
-        $this->assertStringContainsString('secret=custom-secret', $body);
+        Assert::string($body)->contains('secret=custom-secret');
     }
 
-    #[Test]
     public function verifyV3UsesSecretV3(): void
     {
-        $config = new RecaptchaConfig(secretV2: 'v2-secret', secretV3: 'v3-secret');
-        $psr17 = new Psr17Factory();
-        $httpClient = $this->createMock(ClientInterface::class);
-        $httpClient->method('sendRequest')->willReturnCallback(
-            function (RequestInterface $request): Response {
-                $this->lastRequest = $request;
-
-                return new Response(200, [], '{"success":true}');
-            },
+        $client = $this->createClient(
+            config: new RecaptchaConfig(secretV2: 'v2-secret', secretV3: 'v3-secret'),
+            response: new Response(200, [], '{"success":true}'),
         );
-        $client = new RecaptchaClient(config: $config, httpClient: $httpClient, requestFactory: $psr17, streamFactory: $psr17);
 
         $client->verifyV3(token: 'token');
 
-        $this->assertNotNull($this->lastRequest);
+        Assert::notNull($this->lastRequest);
         $body = $this->lastRequest->getBody()->__toString();
-        $this->assertStringContainsString('secret=v3-secret', $body);
+        Assert::string($body)->contains('secret=v3-secret');
     }
 
-    #[Test]
     public function verifyWithoutClientIpOmitsRemoteIp(): void
     {
         $this->currentResponse = new Response(200, [], '{"success":true}');
 
         $this->client->verify(token: 'token');
 
-        $this->assertNotNull($this->lastRequest);
+        Assert::notNull($this->lastRequest);
         $body = $this->lastRequest->getBody()->__toString();
-        $this->assertStringNotContainsString('remoteip', $body);
+        Assert::string($body)->notContains('remoteip');
     }
 
-    #[Test]
     public function verifyWithSendRemoteIpButNoIpOmitsRemoteIp(): void
     {
-        $config = new RecaptchaConfig(secretV2: 'test-secret', sendRemoteIp: true);
-        $psr17 = new Psr17Factory();
-        $httpClient = $this->createMock(ClientInterface::class);
-        $httpClient->method('sendRequest')->willReturnCallback(
-            function (RequestInterface $request): Response {
-                $this->lastRequest = $request;
-
-                return new Response(200, [], '{"success":true}');
-            },
+        $client = $this->createClient(
+            config: new RecaptchaConfig(secretV2: 'test-secret', sendRemoteIp: true),
+            response: new Response(200, [], '{"success":true}'),
         );
-        $client = new RecaptchaClient(config: $config, httpClient: $httpClient, requestFactory: $psr17, streamFactory: $psr17);
 
         $client->verify(token: 'token');
 
-        $this->assertNotNull($this->lastRequest);
-        $this->assertStringNotContainsString('remoteip', $this->lastRequest->getBody()->__toString());
+        Assert::notNull($this->lastRequest);
+        Assert::string($this->lastRequest->getBody()->__toString())->notContains('remoteip');
     }
 
-    #[Test]
     public function verifyParsesDeeplyNestedJson(): void
     {
         $deepArray = array_fill(0, 100, 'x');
@@ -170,15 +137,11 @@ final class RecaptchaClientTest extends TestCase
 
         $result = $this->client->verify(token: 'token');
 
-        $this->assertTrue($result->success);
+        Assert::true($result->success);
     }
 
-    #[Test]
     public function verifyParsesJsonAtMaxAllowedDepth(): void
     {
-        // PHP json_decode uses strict depth < limit, so depth:512 accepts up to 511 levels.
-        // Root object = 1 level, plus 510 nested arrays = 511 total → succeeds.
-        // The depth:511 decrement-mutant would have 511 < 511 = false → JsonException → kills mutant.
         $inner = 'true';
         for ($i = 0; $i < 510; $i++) {
             $inner = '[' . $inner . ']';
@@ -189,14 +152,11 @@ final class RecaptchaClientTest extends TestCase
 
         $result = $this->client->verify(token: 'token');
 
-        $this->assertTrue($result->success);
+        Assert::true($result->success);
     }
 
-    #[Test]
     public function verifyThrowsForJsonExceedingDepth512(): void
     {
-        // 511 nested arrays + root object = 512 levels → 512 < 512 = false → original throws.
-        // The depth:513 increment-mutant would have 512 < 513 = true → no exception → kills mutant.
         $inner = 'true';
         for ($i = 0; $i < 511; $i++) {
             $inner = '[' . $inner . ']';
@@ -205,50 +165,52 @@ final class RecaptchaClientTest extends TestCase
 
         $this->currentResponse = new Response(200, [], $json);
 
-        $this->expectException(\JsonException::class);
+        Expect::exception(\JsonException::class);
         $this->client->verify(token: 'token');
     }
 
-    #[Test]
     public function verifySendRemoteIpWithEmptyClientIpOmitsRemoteIp(): void
     {
-        // array_filter strips empty strings: remoteip='' must not appear in the body
-        $config = new RecaptchaConfig(secretV2: 'test-secret', sendRemoteIp: true);
-        $psr17 = new Psr17Factory();
-        $httpClient = $this->createMock(ClientInterface::class);
-        $httpClient->method('sendRequest')->willReturnCallback(
-            function (RequestInterface $request): Response {
-                $this->lastRequest = $request;
-
-                return new Response(200, [], '{"success":true}');
-            },
+        $client = $this->createClient(
+            config: new RecaptchaConfig(secretV2: 'test-secret', sendRemoteIp: true),
+            response: new Response(200, [], '{"success":true}'),
         );
-        $client = new RecaptchaClient(config: $config, httpClient: $httpClient, requestFactory: $psr17, streamFactory: $psr17);
 
         $client->verify(token: 'token', clientIp: '');
 
-        $this->assertNotNull($this->lastRequest);
-        $this->assertStringNotContainsString('remoteip', $this->lastRequest->getBody()->__toString());
+        Assert::notNull($this->lastRequest);
+        Assert::string($this->lastRequest->getBody()->__toString())->notContains('remoteip');
     }
 
-    #[Test]
     public function sendRemoteIpFalseOmitsRemoteIpEvenWhenClientIpProvided(): void
     {
-        $config = new RecaptchaConfig(secretV2: 'test-secret', sendRemoteIp: false);
-        $psr17 = new Psr17Factory();
-        $httpClient = $this->createMock(ClientInterface::class);
-        $httpClient->method('sendRequest')->willReturnCallback(
-            function (RequestInterface $request): Response {
-                $this->lastRequest = $request;
-
-                return new Response(200, [], '{"success":true}');
-            },
+        $client = $this->createClient(
+            config: new RecaptchaConfig(secretV2: 'test-secret', sendRemoteIp: false),
+            response: new Response(200, [], '{"success":true}'),
         );
-        $client = new RecaptchaClient(config: $config, httpClient: $httpClient, requestFactory: $psr17, streamFactory: $psr17);
 
         $client->verify(token: 'token', clientIp: '9.9.9.9');
 
-        $this->assertNotNull($this->lastRequest);
-        $this->assertStringNotContainsString('remoteip', $this->lastRequest->getBody()->__toString());
+        Assert::notNull($this->lastRequest);
+        Assert::string($this->lastRequest->getBody()->__toString())->notContains('remoteip');
+    }
+
+    private function createClient(RecaptchaConfig $config, Response $response): RecaptchaClient
+    {
+        $psr17 = new Psr17Factory();
+        $this->currentResponse = $response;
+        $httpClient = (new FakeHttpClient())
+            ->withCallback(function (RequestInterface $request): Response {
+                $this->lastRequest = $request;
+
+                return $this->currentResponse;
+            });
+
+        return new RecaptchaClient(
+            config: $config,
+            httpClient: $httpClient,
+            requestFactory: $psr17,
+            streamFactory: $psr17,
+        );
     }
 }

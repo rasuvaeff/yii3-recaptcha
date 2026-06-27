@@ -9,10 +9,20 @@
     "tmpDir": "build/infection",
     "minMsi": 100,
     "minCoveredMsi": 100,
+    "testFramework": "testo",
     "mutators": {
         "@default": true,
         "CastString": {
             "ignoreSourceCodeByRegex": [".*\\(string\\) preg_replace.*"]
+        },
+        // Equivalent under Testo: removing `return null` in the catch falls through to the
+        // identical guard `if (!isset(...)) return null;` — same return value, no warning
+        // emitted. PHPUnit killed these via notice-to-exception conversion; Testo does not.
+        "ReturnRemoval": {
+            "ignore": [
+                "Rasuvaeff\\Yii3Recaptcha\\RecaptchaV2RuleHandler::resolveClientIp::99",
+                "Rasuvaeff\\Yii3Recaptcha\\RecaptchaV3RuleHandler::resolveClientIp::122"
+            ]
         }
     }
 }

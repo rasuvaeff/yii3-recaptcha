@@ -4,45 +4,44 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3Recaptcha\Tests;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaConfig;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV2;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV2Size;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV2Theme;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV2Type;
 use Rasuvaeff\Yii3Recaptcha\Tests\Support\NormalizesHtml;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Expect;
+use Testo\Test;
 
-#[CoversClass(RecaptchaV2::class)]
-final class RecaptchaV2Test extends TestCase
+#[Test]
+#[Covers(RecaptchaV2::class)]
+final class RecaptchaV2Test
 {
     use NormalizesHtml;
 
-    #[Test]
     public function rendersWithSiteKey(): void
     {
         $html = RecaptchaV2::widget()->withSiteKey('test-key')->withId('rc')->render();
 
-        $this->assertStringContainsString('"sitekey":"test-key"', $html);
-        $this->assertStringContainsString('grecaptcha.render("rc",', $html);
-        $this->assertStringContainsString('id="rc"', $html);
+        Assert::string($html)->contains('"sitekey":"test-key"');
+        Assert::string($html)->contains('grecaptcha.render("rc",');
+        Assert::string($html)->contains('id="rc"');
     }
 
-    #[Test]
     public function withSiteKeyDoesNotMutateOriginalInstance(): void
     {
         $widget = RecaptchaV2::widget();
         $configuredWidget = $widget->withSiteKey('key');
 
-        $this->assertNotSame($widget, $configuredWidget);
-        $this->assertStringContainsString('"sitekey":"key"', $configuredWidget->withId('rc')->render());
+        Assert::notSame($widget, $configuredWidget);
+        Assert::string($configuredWidget->withId('rc')->render())->contains('"sitekey":"key"');
 
-        $this->expectException(\RuntimeException::class);
+        Expect::exception(\RuntimeException::class);
         $widget->render();
     }
 
-    #[Test]
     public function withMethodsDoNotMutateConfiguredInstance(): void
     {
         $widget = RecaptchaV2::widget()->withSiteKey('key')->withId('base');
@@ -58,55 +57,50 @@ final class RecaptchaV2Test extends TestCase
         $baseHtml = $widget->render();
         $mutatedHtml = $mutatedWidget->render();
 
-        $this->assertStringContainsString('"theme":"light"', $baseHtml);
-        $this->assertStringContainsString('"type":"image"', $baseHtml);
-        $this->assertStringContainsString('"size":"normal"', $baseHtml);
-        $this->assertStringContainsString('https://www.google.com/recaptcha/api.js?onload=', $baseHtml);
-        $this->assertStringNotContainsString('"callback"', $baseHtml);
-        $this->assertStringNotContainsString('"expired-callback"', $baseHtml);
-        $this->assertStringNotContainsString('"error-callback"', $baseHtml);
-        $this->assertStringContainsString('id="base"', $baseHtml);
+        Assert::string($baseHtml)->contains('"theme":"light"');
+        Assert::string($baseHtml)->contains('"type":"image"');
+        Assert::string($baseHtml)->contains('"size":"normal"');
+        Assert::string($baseHtml)->contains('https://www.google.com/recaptcha/api.js?onload=');
+        Assert::string($baseHtml)->notContains('"callback"');
+        Assert::string($baseHtml)->notContains('"expired-callback"');
+        Assert::string($baseHtml)->notContains('"error-callback"');
+        Assert::string($baseHtml)->contains('id="base"');
 
-        $this->assertStringContainsString('"theme":"dark"', $mutatedHtml);
-        $this->assertStringContainsString('"type":"audio"', $mutatedHtml);
-        $this->assertStringContainsString('"size":"compact"', $mutatedHtml);
-        $this->assertStringContainsString('https://custom.example.com/api.js?onload=', $mutatedHtml);
-        $this->assertStringContainsString('"callback":"onSuccess"', $mutatedHtml);
-        $this->assertStringContainsString('"expired-callback":"onExpired"', $mutatedHtml);
-        $this->assertStringContainsString('"error-callback":"onError"', $mutatedHtml);
-        $this->assertStringContainsString('id="base"', $mutatedHtml);
+        Assert::string($mutatedHtml)->contains('"theme":"dark"');
+        Assert::string($mutatedHtml)->contains('"type":"audio"');
+        Assert::string($mutatedHtml)->contains('"size":"compact"');
+        Assert::string($mutatedHtml)->contains('https://custom.example.com/api.js?onload=');
+        Assert::string($mutatedHtml)->contains('"callback":"onSuccess"');
+        Assert::string($mutatedHtml)->contains('"expired-callback":"onExpired"');
+        Assert::string($mutatedHtml)->contains('"error-callback":"onError"');
+        Assert::string($mutatedHtml)->contains('id="base"');
     }
 
-    #[Test]
     public function usesOnloadCallbackSoRenderRunsAfterApiLoads(): void
     {
         $html = RecaptchaV2::widget()->withSiteKey('key')->withId('rc')->render();
 
-        // grecaptcha.render is wrapped in a named function invoked by the API via onload,
-        // never called inline (which would throw under async/defer).
-        $this->assertStringContainsString('function recaptchaOnload_rc()', $html);
-        $this->assertStringContainsString('onload=recaptchaOnload_rc', $html);
-        $this->assertStringContainsString('render=explicit', $html);
-        $this->assertStringContainsString('async', $html);
-        $this->assertStringContainsString('defer', $html);
+        Assert::string($html)->contains('function recaptchaOnload_rc()');
+        Assert::string($html)->contains('onload=recaptchaOnload_rc');
+        Assert::string($html)->contains('render=explicit');
+        Assert::string($html)->contains('async');
+        Assert::string($html)->contains('defer');
     }
 
-    #[Test]
     public function rendersExpectedDefaultMarkup(): void
     {
         $html = RecaptchaV2::widget()->withSiteKey('key')->withId('rc')->render();
 
-        $this->assertSame(
+        Assert::same(
+            $html,
             '<script>function recaptchaOnload_rc() { grecaptcha.render("rc", {"sitekey":"key","theme":"light","type":"image","size":"normal"}); }</script>'
             . "\n"
             . '<div id="rc"></div>'
             . "\n"
             . '<script src="https://www.google.com/recaptcha/api.js?onload=recaptchaOnload_rc&amp;render=explicit" async defer></script>',
-            $html,
         );
     }
 
-    #[Test]
     public function rendersWithTheme(): void
     {
         $html = RecaptchaV2::widget()
@@ -114,10 +108,9 @@ final class RecaptchaV2Test extends TestCase
             ->withTheme(RecaptchaV2Theme::Dark)
             ->render();
 
-        $this->assertStringContainsString('"theme":"dark"', $html);
+        Assert::string($html)->contains('"theme":"dark"');
     }
 
-    #[Test]
     public function rendersWithType(): void
     {
         $html = RecaptchaV2::widget()
@@ -125,10 +118,9 @@ final class RecaptchaV2Test extends TestCase
             ->withType(RecaptchaV2Type::Audio)
             ->render();
 
-        $this->assertStringContainsString('"type":"audio"', $html);
+        Assert::string($html)->contains('"type":"audio"');
     }
 
-    #[Test]
     public function rendersWithSize(): void
     {
         $html = RecaptchaV2::widget()
@@ -136,10 +128,9 @@ final class RecaptchaV2Test extends TestCase
             ->withSize(RecaptchaV2Size::Compact)
             ->render();
 
-        $this->assertStringContainsString('"size":"compact"', $html);
+        Assert::string($html)->contains('"size":"compact"');
     }
 
-    #[Test]
     public function rendersWithCallback(): void
     {
         $html = RecaptchaV2::widget()
@@ -147,10 +138,9 @@ final class RecaptchaV2Test extends TestCase
             ->withCallback('onSuccess')
             ->render();
 
-        $this->assertStringContainsString('"callback":"onSuccess"', $html);
+        Assert::string($html)->contains('"callback":"onSuccess"');
     }
 
-    #[Test]
     public function rendersWithExpiredCallback(): void
     {
         $html = RecaptchaV2::widget()
@@ -158,10 +148,9 @@ final class RecaptchaV2Test extends TestCase
             ->withExpiredCallback('onExpired')
             ->render();
 
-        $this->assertStringContainsString('"expired-callback":"onExpired"', $html);
+        Assert::string($html)->contains('"expired-callback":"onExpired"');
     }
 
-    #[Test]
     public function rendersWithErrorCallback(): void
     {
         $html = RecaptchaV2::widget()
@@ -169,10 +158,9 @@ final class RecaptchaV2Test extends TestCase
             ->withErrorCallback('onError')
             ->render();
 
-        $this->assertStringContainsString('"error-callback":"onError"', $html);
+        Assert::string($html)->contains('"error-callback":"onError"');
     }
 
-    #[Test]
     public function rendersCustomJsApiUrl(): void
     {
         $html = RecaptchaV2::widget()
@@ -180,53 +168,55 @@ final class RecaptchaV2Test extends TestCase
             ->withJsApiUrl('https://custom.example.com/api.js')
             ->render();
 
-        $this->assertStringContainsString('https://custom.example.com/api.js?onload=', $html);
-        $this->assertStringContainsString('render=explicit', $html);
+        Assert::string($html)->contains('https://custom.example.com/api.js?onload=');
+        Assert::string($html)->contains('render=explicit');
     }
 
-    #[Test]
     public function throwsWithoutSiteKey(): void
     {
-        $this->expectException(\RuntimeException::class);
+        Expect::exception(\RuntimeException::class);
         RecaptchaV2::widget()->render();
     }
 
-    #[Test]
+    public function emptySiteKeyInConfigDoesNotSetSiteKey(): void
+    {
+        $config = new RecaptchaConfig(siteKeyV2: '', secretV2: 'secret');
+
+        Expect::exception(\RuntimeException::class);
+        (new RecaptchaV2(config: $config))->render();
+    }
+
     public function usesSiteKeyFromConfig(): void
     {
         $config = new RecaptchaConfig(siteKeyV2: 'config-v2-key', secretV2: 'secret');
         $html = (new RecaptchaV2(config: $config))->render();
 
-        $this->assertStringContainsString('"sitekey":"config-v2-key"', $html);
+        Assert::string($html)->contains('"sitekey":"config-v2-key"');
     }
 
-    #[Test]
     public function withSiteKeyOverridesConfig(): void
     {
         $config = new RecaptchaConfig(siteKeyV2: 'config-v2-key', secretV2: 'secret');
         $html = (new RecaptchaV2(config: $config))->withSiteKey('override-key')->render();
 
-        $this->assertStringContainsString('"sitekey":"override-key"', $html);
+        Assert::string($html)->contains('"sitekey":"override-key"');
     }
 
-    #[Test]
     public function generatesUniqueIdPerInstanceWhenNotSet(): void
     {
         $widget = RecaptchaV2::widget()->withSiteKey('key');
 
-        $this->assertNotSame($widget->render(), $widget->render());
+        Assert::notSame($widget->render(), $widget->render());
     }
 
-    #[Test]
     public function customIdAppearsInDivAndRenderCall(): void
     {
         $html = RecaptchaV2::widget()->withSiteKey('key')->withId('my-captcha')->render();
 
-        $this->assertStringContainsString('id="my-captcha"', $html);
-        $this->assertStringContainsString('grecaptcha.render("my-captcha",', $html);
+        Assert::string($html)->contains('id="my-captcha"');
+        Assert::string($html)->contains('grecaptcha.render("my-captcha",');
     }
 
-    #[Test]
     public function escapesUnsafeCallbackToPreventScriptBreakout(): void
     {
         $html = RecaptchaV2::widget()
@@ -234,91 +224,82 @@ final class RecaptchaV2Test extends TestCase
             ->withCallback("x</script><script>alert('xss')</script>")
             ->render();
 
-        $this->assertStringNotContainsString('</script><script>', $html);
-        $this->assertStringNotContainsString("alert('xss')", $html);
+        Assert::string($html)->notContains('</script><script>');
+        Assert::string($html)->notContains("alert('xss')");
     }
 
-    #[Test]
     public function withIdDoesNotMutateOriginal(): void
     {
         $original = RecaptchaV2::widget()->withSiteKey('key')->withId('original');
         $modified = $original->withId('changed');
 
-        $this->assertStringContainsString('id="original"', $original->render());
-        $this->assertStringContainsString('id="changed"', $modified->render());
+        Assert::string($original->render())->contains('id="original"');
+        Assert::string($modified->render())->contains('id="changed"');
     }
 
-    #[Test]
     public function withThemeDoesNotMutateOriginal(): void
     {
         $original = RecaptchaV2::widget()->withSiteKey('key');
         $modified = $original->withTheme(RecaptchaV2Theme::Dark);
 
-        $this->assertStringContainsString('"theme":"light"', $original->render());
-        $this->assertStringContainsString('"theme":"dark"', $modified->render());
+        Assert::string($original->render())->contains('"theme":"light"');
+        Assert::string($modified->render())->contains('"theme":"dark"');
     }
 
-    #[Test]
     public function withTypeDoesNotMutateOriginal(): void
     {
         $original = RecaptchaV2::widget()->withSiteKey('key');
         $modified = $original->withType(RecaptchaV2Type::Audio);
 
-        $this->assertStringContainsString('"type":"image"', $original->render());
-        $this->assertStringContainsString('"type":"audio"', $modified->render());
+        Assert::string($original->render())->contains('"type":"image"');
+        Assert::string($modified->render())->contains('"type":"audio"');
     }
 
-    #[Test]
     public function withSizeDoesNotMutateOriginal(): void
     {
         $original = RecaptchaV2::widget()->withSiteKey('key');
         $modified = $original->withSize(RecaptchaV2Size::Compact);
 
-        $this->assertStringContainsString('"size":"normal"', $original->render());
-        $this->assertStringContainsString('"size":"compact"', $modified->render());
+        Assert::string($original->render())->contains('"size":"normal"');
+        Assert::string($modified->render())->contains('"size":"compact"');
     }
 
-    #[Test]
     public function withJsApiUrlDoesNotMutateOriginal(): void
     {
         $original = RecaptchaV2::widget()->withSiteKey('key');
         $modified = $original->withJsApiUrl('https://custom.example.com/api.js');
 
-        $this->assertStringContainsString('https://www.google.com/recaptcha/api.js', $original->render());
-        $this->assertStringContainsString('https://custom.example.com/api.js', $modified->render());
+        Assert::string($original->render())->contains('https://www.google.com/recaptcha/api.js');
+        Assert::string($modified->render())->contains('https://custom.example.com/api.js');
     }
 
-    #[Test]
     public function withCallbackDoesNotMutateOriginal(): void
     {
         $original = RecaptchaV2::widget()->withSiteKey('key');
         $modified = $original->withCallback('onSuccess');
 
-        $this->assertStringNotContainsString('"callback"', $original->render());
-        $this->assertStringContainsString('"callback":"onSuccess"', $modified->render());
+        Assert::string($original->render())->notContains('"callback"');
+        Assert::string($modified->render())->contains('"callback":"onSuccess"');
     }
 
-    #[Test]
     public function withExpiredCallbackDoesNotMutateOriginal(): void
     {
         $original = RecaptchaV2::widget()->withSiteKey('key');
         $modified = $original->withExpiredCallback('onExpired');
 
-        $this->assertStringNotContainsString('"expired-callback"', $original->render());
-        $this->assertStringContainsString('"expired-callback":"onExpired"', $modified->render());
+        Assert::string($original->render())->notContains('"expired-callback"');
+        Assert::string($modified->render())->contains('"expired-callback":"onExpired"');
     }
 
-    #[Test]
     public function withErrorCallbackDoesNotMutateOriginal(): void
     {
         $original = RecaptchaV2::widget()->withSiteKey('key');
         $modified = $original->withErrorCallback('onError');
 
-        $this->assertStringNotContainsString('"error-callback"', $original->render());
-        $this->assertStringContainsString('"error-callback":"onError"', $modified->render());
+        Assert::string($original->render())->notContains('"error-callback"');
+        Assert::string($modified->render())->contains('"error-callback":"onError"');
     }
 
-    #[Test]
     public function jsonEncodingUsesXssSafeFlags(): void
     {
         $html = RecaptchaV2::widget()
@@ -326,13 +307,12 @@ final class RecaptchaV2Test extends TestCase
             ->withId('test<"\'&id')
             ->render();
 
-        $this->assertStringContainsString('\\u003C', $html);
-        $this->assertStringContainsString('\\u0022', $html);
-        $this->assertStringContainsString('\\u0027', $html);
-        $this->assertStringContainsString('\\u0026', $html);
+        Assert::string($html)->contains('\\u003C');
+        Assert::string($html)->contains('\\u0022');
+        Assert::string($html)->contains('\\u0027');
+        Assert::string($html)->contains('\\u0026');
     }
 
-    #[Test]
     public function withResponseFieldNameRendersHiddenInput(): void
     {
         $html = RecaptchaV2::widget()
@@ -340,11 +320,10 @@ final class RecaptchaV2Test extends TestCase
             ->withResponseFieldName('gRecaptchaResponse')
             ->render();
 
-        $this->assertStringContainsString('name="gRecaptchaResponse"', $html);
-        $this->assertStringContainsString('type="hidden"', $html);
+        Assert::string($html)->contains('name="gRecaptchaResponse"');
+        Assert::string($html)->contains('type="hidden"');
     }
 
-    #[Test]
     public function withResponseFieldNameRendersInlineCopyCallback(): void
     {
         $html = RecaptchaV2::widget()
@@ -352,11 +331,10 @@ final class RecaptchaV2Test extends TestCase
             ->withResponseFieldName('gRecaptchaResponse')
             ->render();
 
-        $this->assertStringContainsString('recaptchaFieldCopy_', $html);
-        $this->assertStringContainsString('.value=t', $html);
+        Assert::string($html)->contains('recaptchaFieldCopy_');
+        Assert::string($html)->contains('.value=t');
     }
 
-    #[Test]
     public function withResponseFieldNameChainsUserCallback(): void
     {
         $html = RecaptchaV2::widget()
@@ -365,21 +343,19 @@ final class RecaptchaV2Test extends TestCase
             ->withCallback('myCallback')
             ->render();
 
-        $this->assertStringContainsString('myCallback', $html);
-        $this->assertStringContainsString('.value=t', $html);
+        Assert::string($html)->contains('myCallback');
+        Assert::string($html)->contains('.value=t');
     }
 
-    #[Test]
     public function withResponseFieldNameDoesNotMutateOriginal(): void
     {
         $original = RecaptchaV2::widget()->withSiteKey('key');
         $modified = $original->withResponseFieldName('gRecaptchaResponse');
 
-        $this->assertStringNotContainsString('gRecaptchaResponse', $original->render());
-        $this->assertStringContainsString('gRecaptchaResponse', $modified->render());
+        Assert::string($original->render())->notContains('gRecaptchaResponse');
+        Assert::string($modified->render())->contains('gRecaptchaResponse');
     }
 
-    #[Test]
     public function withResponseFieldNameXssSafeFieldId(): void
     {
         $html = RecaptchaV2::widget()
@@ -387,10 +363,9 @@ final class RecaptchaV2Test extends TestCase
             ->withResponseFieldName('field<"\'&name')
             ->render();
 
-        $this->assertStringNotContainsString('field<', $html);
+        Assert::string($html)->notContains('field<');
     }
 
-    #[Test]
     public function withResponseFieldNameUsesIdPrefixedFieldId(): void
     {
         $html = RecaptchaV2::widget()
@@ -399,12 +374,10 @@ final class RecaptchaV2Test extends TestCase
             ->withResponseFieldName('g-recaptcha-response')
             ->render();
 
-        // fieldId must be "{id}-response", not "-response" alone or just "{id}"
-        $this->assertStringContainsString('id="my-rc-response"', $html);
-        $this->assertStringNotContainsString('id="-response"', $html);
+        Assert::string($html)->contains('id="my-rc-response"');
+        Assert::string($html)->notContains('id="-response"');
     }
 
-    #[Test]
     public function withResponseFieldNameEmbedsCopyCallbackWithIdSuffix(): void
     {
         $html = RecaptchaV2::widget()
@@ -413,12 +386,10 @@ final class RecaptchaV2Test extends TestCase
             ->withResponseFieldName('g-recaptcha-response')
             ->render();
 
-        // copyCallback must be "recaptchaFieldCopy_{sanitised-id}", not just "recaptchaFieldCopy_"
-        $this->assertStringContainsString('recaptchaFieldCopy_my_rc', $html);
-        $this->assertStringNotContainsString('function recaptchaFieldCopy_(', $html);
+        Assert::string($html)->contains('recaptchaFieldCopy_my_rc');
+        Assert::string($html)->notContains('function recaptchaFieldCopy_(');
     }
 
-    #[Test]
     public function withResponseFieldNameCopyCallbackChainIncludesCallSuffix(): void
     {
         $html = RecaptchaV2::widget()
@@ -428,11 +399,9 @@ final class RecaptchaV2Test extends TestCase
             ->withCallback('myFn')
             ->render();
 
-        // chain must be `"myFn"(t);` — not just `"myFn"` without the call
-        $this->assertStringContainsString('"myFn"(t);', $html);
+        Assert::string($html)->contains('"myFn"(t);');
     }
 
-    #[Test]
     public function withResponseFieldNameHiddenBlockPrecedesInitScript(): void
     {
         $html = RecaptchaV2::widget()
@@ -441,16 +410,14 @@ final class RecaptchaV2Test extends TestCase
             ->withResponseFieldName('resp')
             ->render();
 
-        // hidden input block must come before the init script block
         $hiddenPos = strpos($html, 'type="hidden"');
-        $initPos   = strpos($html, 'function recaptchaOnload_');
+        $initPos = strpos($html, 'function recaptchaOnload_');
 
-        $this->assertNotFalse($hiddenPos);
-        $this->assertNotFalse($initPos);
-        $this->assertLessThan($initPos, $hiddenPos);
+        Assert::notSame($hiddenPos, false);
+        Assert::notSame($initPos, false);
+        Assert::true($hiddenPos < $initPos);
     }
 
-    #[Test]
     public function withResponseFieldNameRendersExactMarkup(): void
     {
         $html = RecaptchaV2::widget()
@@ -459,26 +426,21 @@ final class RecaptchaV2Test extends TestCase
             ->withResponseFieldName('resp')
             ->render();
 
-        // The two hidden-block lines must be joined by "\n" (newline between them).
-        // Attribute order inside <input> varies across yiisoft/html versions, so
-        // normalize it before comparing.
-        $this->assertStringContainsString(
+        Assert::string(
+            self::normalizeInputAttributes($html),
+        )->contains(
             self::normalizeInputAttributes(
                 '<input type="hidden" name="resp" id="rc-response">'
                 . "\n"
                 . '<script>function recaptchaFieldCopy_rc(t){document.getElementById("rc-response").value=t;}</script>',
             ),
-            self::normalizeInputAttributes($html),
         );
 
-        // There must be a newline between the hidden block and the init script
-        $this->assertStringContainsString(
+        Assert::string($html)->contains(
             '</script>' . "\n" . '<script>function recaptchaOnload_rc()',
-            $html,
         );
     }
 
-    #[Test]
     public function withResponseFieldNameFullOutputOrder(): void
     {
         $html = RecaptchaV2::widget()
@@ -487,7 +449,6 @@ final class RecaptchaV2Test extends TestCase
             ->withResponseFieldName('resp')
             ->render();
 
-        // Expected order: hiddenInput block \n initScript \n div \n apiScript
         $expected
             = '<input type="hidden" name="resp" id="rc-response">'
             . "\n"
@@ -499,6 +460,6 @@ final class RecaptchaV2Test extends TestCase
             . "\n"
             . '<script src="https://www.google.com/recaptcha/api.js?onload=recaptchaOnload_rc&amp;render=explicit" async defer></script>';
 
-        $this->assertSame(self::normalizeInputAttributes($expected), self::normalizeInputAttributes($html));
+        Assert::same(self::normalizeInputAttributes($html), self::normalizeInputAttributes($expected));
     }
 }

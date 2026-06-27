@@ -4,41 +4,40 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3Recaptcha\Tests;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaConfig;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV3;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV3Badge;
 use Rasuvaeff\Yii3Recaptcha\Tests\Support\NormalizesHtml;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Expect;
+use Testo\Test;
 
-#[CoversClass(RecaptchaV3::class)]
-final class RecaptchaV3Test extends TestCase
+#[Test]
+#[Covers(RecaptchaV3::class)]
+final class RecaptchaV3Test
 {
     use NormalizesHtml;
 
-    #[Test]
     public function rendersWithSiteKey(): void
     {
         $html = RecaptchaV3::widget()->withSiteKey('test-key')->render();
 
-        $this->assertStringContainsString('https://www.google.com/recaptcha/api.js?render=test-key', $html);
+        Assert::string($html)->contains('https://www.google.com/recaptcha/api.js?render=test-key');
     }
 
-    #[Test]
     public function withSiteKeyDoesNotMutateOriginalInstance(): void
     {
         $widget = RecaptchaV3::widget();
         $configuredWidget = $widget->withSiteKey('key');
 
-        $this->assertNotSame($widget, $configuredWidget);
-        $this->assertStringContainsString('render=key', $configuredWidget->render());
+        Assert::notSame($widget, $configuredWidget);
+        Assert::string($configuredWidget->render())->contains('render=key');
 
-        $this->expectException(\RuntimeException::class);
+        Expect::exception(\RuntimeException::class);
         $widget->render();
     }
 
-    #[Test]
     public function withMethodsDoNotMutateConfiguredInstance(): void
     {
         $widget = RecaptchaV3::widget()->withSiteKey('key');
@@ -53,31 +52,29 @@ final class RecaptchaV3Test extends TestCase
         $baseHtml = $widget->render();
         $mutatedHtml = $mutatedWidget->render();
 
-        $this->assertStringContainsString('https://www.google.com/recaptcha/api.js?render=key', $baseHtml);
-        $this->assertStringContainsString('name="g-recaptcha-response"', $baseHtml);
-        $this->assertStringContainsString('{action: "submit"}', $baseHtml);
-        $this->assertStringNotContainsString('document.getElementById("login-form")', $baseHtml);
-        $this->assertStringNotContainsString('visibility: hidden', $baseHtml);
+        Assert::string($baseHtml)->contains('https://www.google.com/recaptcha/api.js?render=key');
+        Assert::string($baseHtml)->contains('name="g-recaptcha-response"');
+        Assert::string($baseHtml)->contains('{action: "submit"}');
+        Assert::string($baseHtml)->notContains('document.getElementById("login-form")');
+        Assert::string($baseHtml)->notContains('visibility: hidden');
 
-        $this->assertStringContainsString('https://custom.example.com/api.js?render=key', $mutatedHtml);
-        $this->assertStringContainsString('name="captchaToken"', $mutatedHtml);
-        $this->assertStringContainsString('id="token-id"', $mutatedHtml);
-        $this->assertStringContainsString('{action: "login"}', $mutatedHtml);
-        $this->assertStringContainsString('document.getElementById("login-form")', $mutatedHtml);
-        $this->assertStringContainsString('visibility: hidden', $mutatedHtml);
+        Assert::string($mutatedHtml)->contains('https://custom.example.com/api.js?render=key');
+        Assert::string($mutatedHtml)->contains('name="captchaToken"');
+        Assert::string($mutatedHtml)->contains('id="token-id"');
+        Assert::string($mutatedHtml)->contains('{action: "login"}');
+        Assert::string($mutatedHtml)->contains('document.getElementById("login-form")');
+        Assert::string($mutatedHtml)->contains('visibility: hidden');
     }
 
-    #[Test]
     public function apiScriptHasNoAsyncDeferSoInlineExecuteIsSafe(): void
     {
         $html = RecaptchaV3::widget()->withSiteKey('key')->render();
 
         $scriptTag = substr($html, 0, (int) strpos($html, '</script>'));
-        $this->assertStringNotContainsString('async', $scriptTag);
-        $this->assertStringNotContainsString('defer', $scriptTag);
+        Assert::string($scriptTag)->notContains('async');
+        Assert::string($scriptTag)->notContains('defer');
     }
 
-    #[Test]
     public function rendersCustomJsApiUrl(): void
     {
         $html = RecaptchaV3::widget()
@@ -85,80 +82,79 @@ final class RecaptchaV3Test extends TestCase
             ->withJsApiUrl('https://custom.example.com/api.js')
             ->render();
 
-        $this->assertStringContainsString('https://custom.example.com/api.js?render=key', $html);
+        Assert::string($html)->contains('https://custom.example.com/api.js?render=key');
     }
 
-    #[Test]
     public function throwsWithoutSiteKey(): void
     {
-        $this->expectException(\RuntimeException::class);
+        Expect::exception(\RuntimeException::class);
         RecaptchaV3::widget()->render();
     }
 
-    #[Test]
+    public function emptySiteKeyInConfigDoesNotSetSiteKey(): void
+    {
+        $config = new RecaptchaConfig(siteKeyV3: '', secretV3: 'secret');
+
+        Expect::exception(\RuntimeException::class);
+        (new RecaptchaV3(config: $config))->render();
+    }
+
     public function usesSiteKeyFromConfig(): void
     {
         $config = new RecaptchaConfig(siteKeyV3: 'config-v3-key', secretV3: 'secret');
         $html = (new RecaptchaV3(config: $config))->render();
 
-        $this->assertStringContainsString('render=config-v3-key', $html);
+        Assert::string($html)->contains('render=config-v3-key');
     }
 
-    #[Test]
     public function withSiteKeyOverridesConfig(): void
     {
         $config = new RecaptchaConfig(siteKeyV3: 'config-v3-key', secretV3: 'secret');
         $html = (new RecaptchaV3(config: $config))->withSiteKey('override-key')->render();
 
-        $this->assertStringContainsString('render=override-key', $html);
+        Assert::string($html)->contains('render=override-key');
     }
 
-    #[Test]
     public function rendersHiddenInputWithDefaultName(): void
     {
         $html = RecaptchaV3::widget()->withSiteKey('key')->render();
 
-        $this->assertStringContainsString('type="hidden"', $html);
-        $this->assertStringContainsString('name="g-recaptcha-response"', $html);
+        Assert::string($html)->contains('type="hidden"');
+        Assert::string($html)->contains('name="g-recaptcha-response"');
     }
 
-    #[Test]
     public function rendersCustomFieldName(): void
     {
         $html = RecaptchaV3::widget()->withSiteKey('key')->withFieldName('captchaToken')->render();
 
-        $this->assertStringContainsString('name="captchaToken"', $html);
+        Assert::string($html)->contains('name="captchaToken"');
     }
 
-    #[Test]
     public function executesWithDefaultAction(): void
     {
         $html = RecaptchaV3::widget()->withSiteKey('key')->render();
 
-        $this->assertStringContainsString('grecaptcha.execute("key", {action: "submit"})', $html);
-        $this->assertStringContainsString('grecaptcha.ready(', $html);
+        Assert::string($html)->contains('grecaptcha.execute("key", {action: "submit"})');
+        Assert::string($html)->contains('grecaptcha.ready(');
     }
 
-    #[Test]
     public function executesWithCustomAction(): void
     {
         $html = RecaptchaV3::widget()->withSiteKey('key')->withAction('login')->render();
 
-        $this->assertStringContainsString('{action: "login"}', $html);
+        Assert::string($html)->contains('{action: "login"}');
     }
 
-    #[Test]
     public function bindsInvisibleSubmitWhenFormIdSet(): void
     {
         $html = RecaptchaV3::widget()->withSiteKey('key')->withFormId('login-form')->render();
 
-        $this->assertStringContainsString('document.getElementById("login-form")', $html);
-        $this->assertStringContainsString("addEventListener('submit'", $html);
-        $this->assertStringNotContainsString('dataset.recaptchaV3Done', $html);
-        $this->assertStringContainsString('form.submit();', $html);
+        Assert::string($html)->contains('document.getElementById("login-form")');
+        Assert::string($html)->contains("addEventListener('submit'");
+        Assert::string($html)->notContains('dataset.recaptchaV3Done');
+        Assert::string($html)->contains('form.submit();');
     }
 
-    #[Test]
     public function rendersExpectedHiddenBadgeMarkup(): void
     {
         $html = RecaptchaV3::widget()
@@ -178,133 +174,118 @@ final class RecaptchaV3Test extends TestCase
             . "\n"
             . '<p class="recaptcha-v3-notice">This site is protected by reCAPTCHA and the Google <a href="https://policies.google.com/privacy">Privacy Policy</a> and <a href="https://policies.google.com/terms">Terms of Service</a> apply.</p>';
 
-        // Attribute order inside <input> varies across yiisoft/html versions.
-        $this->assertSame(self::normalizeInputAttributes($expected), self::normalizeInputAttributes($html));
+        Assert::same(self::normalizeInputAttributes($html), self::normalizeInputAttributes($expected));
     }
 
-    #[Test]
     public function executesOnReadyWhenNoFormId(): void
     {
         $html = RecaptchaV3::widget()->withSiteKey('key')->render();
 
-        $this->assertStringNotContainsString('form.submit();', $html);
-        $this->assertStringNotContainsString("addEventListener('submit'", $html);
+        Assert::string($html)->notContains('form.submit();');
+        Assert::string($html)->notContains("addEventListener('submit'");
     }
 
-    #[Test]
     public function customFieldIdAppearsInInputAndScript(): void
     {
         $html = RecaptchaV3::widget()->withSiteKey('key')->withFieldId('my-token')->render();
 
-        $this->assertStringContainsString('id="my-token"', $html);
-        $this->assertStringContainsString('document.getElementById("my-token")', $html);
+        Assert::string($html)->contains('id="my-token"');
+        Assert::string($html)->contains('document.getElementById("my-token")');
     }
 
-    #[Test]
     public function generatesUniqueFieldIdPerInstanceWhenNotSet(): void
     {
         $widget = RecaptchaV3::widget()->withSiteKey('key');
 
-        $this->assertNotSame($widget->render(), $widget->render());
+        Assert::notSame($widget->render(), $widget->render());
     }
 
-    #[Test]
     public function bottomRightBadgeAddsNoStyle(): void
     {
         $html = RecaptchaV3::widget()->withSiteKey('key')->render();
 
-        $this->assertStringNotContainsString('.grecaptcha-badge', $html);
+        Assert::string($html)->notContains('.grecaptcha-badge');
     }
 
-    #[Test]
     public function bottomLeftBadgeAddsStyle(): void
     {
         $html = RecaptchaV3::widget()->withSiteKey('key')->withBadge(RecaptchaV3Badge::BottomLeft)->render();
 
-        $this->assertStringContainsString('.grecaptcha-badge', $html);
-        $this->assertStringContainsString('left: 14px', $html);
+        Assert::string($html)->contains('.grecaptcha-badge');
+        Assert::string($html)->contains('left: 14px');
     }
 
-    #[Test]
     public function hiddenBadgeAddsStyleAndLegalNotice(): void
     {
         $html = RecaptchaV3::widget()->withSiteKey('key')->withBadge(RecaptchaV3Badge::Hidden)->render();
 
-        $this->assertStringContainsString('visibility: hidden', $html);
-        $this->assertStringContainsString('Privacy Policy', $html);
-        $this->assertStringContainsString('Terms of Service', $html);
+        Assert::string($html)->contains('visibility: hidden');
+        Assert::string($html)->contains('Privacy Policy');
+        Assert::string($html)->contains('Terms of Service');
     }
 
-    #[Test]
     public function escapesUnsafeActionToPreventScriptBreakout(): void
     {
         $html = RecaptchaV3::widget()->withSiteKey('key')->withAction('"});alert(1);//')->render();
 
-        $this->assertStringNotContainsString('"});alert', $html);
-        $this->assertStringContainsString('{action: "\\u0022});alert(1);\\/\\/"}', $html);
+        Assert::string($html)->notContains('"});alert');
+        Assert::string($html)->contains('{action: "\\u0022});alert(1);\\/\\/"}');
     }
 
-    #[Test]
     public function withFieldNameDoesNotMutateOriginal(): void
     {
         $original = RecaptchaV3::widget()->withSiteKey('key');
         $modified = $original->withFieldName('captchaToken');
 
-        $this->assertStringContainsString('name="g-recaptcha-response"', $original->render());
-        $this->assertStringContainsString('name="captchaToken"', $modified->render());
+        Assert::string($original->render())->contains('name="g-recaptcha-response"');
+        Assert::string($modified->render())->contains('name="captchaToken"');
     }
 
-    #[Test]
     public function withFieldIdDoesNotMutateOriginal(): void
     {
         $original = RecaptchaV3::widget()->withSiteKey('key')->withFieldId('original-id');
         $modified = $original->withFieldId('new-id');
 
-        $this->assertStringContainsString('id="original-id"', $original->render());
-        $this->assertStringContainsString('id="new-id"', $modified->render());
+        Assert::string($original->render())->contains('id="original-id"');
+        Assert::string($modified->render())->contains('id="new-id"');
     }
 
-    #[Test]
     public function withFormIdDoesNotMutateOriginal(): void
     {
         $original = RecaptchaV3::widget()->withSiteKey('key');
         $modified = $original->withFormId('login-form');
 
-        $this->assertStringNotContainsString('document.getElementById("login-form")', $original->render());
-        $this->assertStringContainsString('document.getElementById("login-form")', $modified->render());
+        Assert::string($original->render())->notContains('document.getElementById("login-form")');
+        Assert::string($modified->render())->contains('document.getElementById("login-form")');
     }
 
-    #[Test]
     public function withBadgeDoesNotMutateOriginal(): void
     {
         $original = RecaptchaV3::widget()->withSiteKey('key');
         $modified = $original->withBadge(RecaptchaV3Badge::Hidden);
 
-        $this->assertStringNotContainsString('visibility: hidden', $original->render());
-        $this->assertStringContainsString('visibility: hidden', $modified->render());
+        Assert::string($original->render())->notContains('visibility: hidden');
+        Assert::string($modified->render())->contains('visibility: hidden');
     }
 
-    #[Test]
     public function withJsApiUrlDoesNotMutateOriginal(): void
     {
         $original = RecaptchaV3::widget()->withSiteKey('key');
         $modified = $original->withJsApiUrl('https://custom.example.com/api.js');
 
-        $this->assertStringContainsString('https://www.google.com/recaptcha/api.js', $original->render());
-        $this->assertStringContainsString('https://custom.example.com/api.js', $modified->render());
+        Assert::string($original->render())->contains('https://www.google.com/recaptcha/api.js');
+        Assert::string($modified->render())->contains('https://custom.example.com/api.js');
     }
 
-    #[Test]
     public function jsonEncodingUsesXssSafeFlags(): void
     {
         $html = RecaptchaV3::widget()->withSiteKey('<"key&\'')->render();
 
-        $this->assertStringContainsString('\\u003C', $html);
-        $this->assertStringContainsString('\\u0022', $html);
-        $this->assertStringContainsString('\\u0026', $html);
+        Assert::string($html)->contains('\\u003C');
+        Assert::string($html)->contains('\\u0022');
+        Assert::string($html)->contains('\\u0026');
     }
 
-    #[Test]
     public function noFormIdRenderStartsWithGrecaptchaReady(): void
     {
         $html = RecaptchaV3::widget()->withSiteKey('key')->withFieldId('tid')->render();
@@ -313,14 +294,13 @@ final class RecaptchaV3Test extends TestCase
         if (preg_match('/<script>(.*?)<\/script>/s', $html, $m)) {
             $scriptContent = $m[1];
         }
-        $this->assertStringStartsWith('grecaptcha.ready(', trim($scriptContent));
+        Assert::true(str_starts_with(trim($scriptContent), 'grecaptcha.ready('));
     }
 
-    #[Test]
     public function bottomLeftBadgeOutputPrecedesStyleWithNewline(): void
     {
         $html = RecaptchaV3::widget()->withSiteKey('key')->withBadge(RecaptchaV3Badge::BottomLeft)->render();
 
-        $this->assertMatchesRegularExpression("/\\n<style>/", $html);
+        Assert::true(preg_match("/\\n<style>/", $html) === 1);
     }
 }
