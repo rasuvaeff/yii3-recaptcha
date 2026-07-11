@@ -1,5 +1,33 @@
 # Changelog
 
+## 2.0.0 — 2026-07-11
+
+### Added
+
+- `RecaptchaV2Field` / `RecaptchaV3Field` — `yiisoft/form-model` fields that bind
+  the token to a form model property and delegate rendering to the widgets.
+- `ClientIpResolverInterface` + default `RemoteAddrClientIpResolver` — pluggable
+  client-IP resolution (rebind behind a proxy/CDN to use the real client IP).
+  The default validates the address with `FILTER_VALIDATE_IP`.
+- `Exception\RecaptchaException` marker + `Exception\MissingSiteKeyException`.
+- `withNonce()` on both widgets — CSP `nonce` on every emitted `<script>`/`<style>`.
+- `failOpenOnError` on `RecaptchaV2Rule` / `RecaptchaV3Rule` — opt in to pass
+  validation when the siteverify endpoint is unreachable (default is fail-closed).
+- `VerificationResult::transportError()` / `isTransportError()` and the
+  `TRANSPORT_ERROR` code.
+
+### Changed
+
+- **BREAKING:** removed `RecaptchaRegistry`. Rule handlers now receive their
+  dependencies through the validator's container-backed handler resolver (the
+  Yii3 default); the static registry and the `bootstrap.php` config entry are gone.
+- **BREAKING:** rule handler constructors now require `RecaptchaClient` and a
+  `ClientIpResolverInterface` instead of an optional `RequestProviderInterface`.
+- **BREAKING:** `RecaptchaClient` no longer throws on transport/HTTP/JSON errors;
+  it returns a failed `VerificationResult` tagged `TRANSPORT_ERROR` (fail-closed).
+- Widgets now throw `MissingSiteKeyException` instead of a plain `RuntimeException`
+  when rendered without a site key.
+
 ## 1.0.3 — 2026-06-30
 
 - Add `/benchmarks` and `/Makefile` to `.gitattributes` export-ignore.

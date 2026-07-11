@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3Recaptcha\Tests;
 
+use Rasuvaeff\PropertyTesting\ArbitraryInterface;
+use Rasuvaeff\PropertyTesting\Gen;
+use Rasuvaeff\PropertyTesting\Property;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaConfig;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV3;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV3Badge;
@@ -302,5 +305,31 @@ final class RecaptchaV3Test
         $html = RecaptchaV3::widget()->withSiteKey('key')->withBadge(RecaptchaV3Badge::BottomLeft)->render();
 
         Assert::true(preg_match("/\\n<style>/", $html) === 1);
+    }
+
+    /**
+     * The number of `<script` markers is invariant to user-controlled input:
+     * the JSON_HEX_* flags escape any `<` in the site key or action, so no
+     * string can break out of the inline script and inject its own tag.
+     */
+    #[Property(runs: 200)]
+    public function userInputCannotInjectScriptTags(string $payload): void
+    {
+        $html = RecaptchaV3::widget()
+            ->withSiteKey($payload)
+            ->withAction($payload)
+            ->render();
+
+        Assert::same(substr_count($html, '<script'), 2);
+    }
+
+    /**
+     * @return array<string, ArbitraryInterface>
+     */
+    public static function userInputCannotInjectScriptTagsGenerators(): array
+    {
+        return [
+            'payload' => Gen::stringAscii(),
+        ];
     }
 }

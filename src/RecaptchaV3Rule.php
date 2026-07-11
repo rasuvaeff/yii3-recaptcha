@@ -33,6 +33,7 @@ final class RecaptchaV3Rule implements RuleInterface, SkipOnEmptyInterface, Skip
         private readonly float    $threshold = 0.5,
         private readonly ?string  $action = null,
         private readonly bool     $sendRemoteIp = false,
+        private readonly bool     $failOpenOnError = false,
         bool|callable|null        $skipOnEmpty = null,
         private readonly bool     $skipOnError = false,
         private readonly ?Closure $when = null,
@@ -84,5 +85,10 @@ final class RecaptchaV3Rule implements RuleInterface, SkipOnEmptyInterface, Skip
     public function getSendRemoteIp(): bool
     {
         return $this->sendRemoteIp;
+    }
+
+    public function isFailOpenOnError(): bool
+    {
+        return $this->failOpenOnError;
     }
 }

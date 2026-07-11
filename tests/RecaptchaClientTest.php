@@ -11,7 +11,6 @@ use Rasuvaeff\Yii3Recaptcha\RecaptchaClient;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaConfig;
 use Testo\Assert;
 use Testo\Codecov\Covers;
-use Testo\Expect;
 use Testo\Lifecycle\BeforeTest;
 use Testo\Test;
 
@@ -155,7 +154,7 @@ final class RecaptchaClientTest
         Assert::true($result->success);
     }
 
-    public function verifyThrowsForJsonExceedingDepth512(): void
+    public function verifyReturnsTransportErrorForJsonExceedingDepth512(): void
     {
         $inner = 'true';
         for ($i = 0; $i < 511; $i++) {
@@ -165,8 +164,10 @@ final class RecaptchaClientTest
 
         $this->currentResponse = new Response(200, [], $json);
 
-        Expect::exception(\JsonException::class);
-        $this->client->verify(token: 'token');
+        $result = $this->client->verify(token: 'token');
+
+        Assert::false($result->success);
+        Assert::true($result->isTransportError());
     }
 
     public function verifySendRemoteIpWithEmptyClientIpOmitsRemoteIp(): void
@@ -193,6 +194,34 @@ final class RecaptchaClientTest
 
         Assert::notNull($this->lastRequest);
         Assert::string($this->lastRequest->getBody()->__toString())->notContains('remoteip');
+    }
+
+    public function verifyReturnsTransportErrorOnNon2xxStatus(): void
+    {
+        $this->currentResponse = new Response(503, [], 'Service Unavailable');
+
+        $result = $this->client->verify(token: 'token');
+
+        Assert::false($result->success);
+        Assert::true($result->isTransportError());
+    }
+
+    public function verifyReturnsTransportErrorWhenClientThrows(): void
+    {
+        $psr17 = new Psr17Factory();
+        $client = new RecaptchaClient(
+            config: new RecaptchaConfig(secretV2: 'test-secret'),
+            httpClient: (new FakeHttpClient())->withCallback(
+                static fn(): Response => throw new \Rasuvaeff\Yii3Recaptcha\Tests\Support\ThrowingClientException(),
+            ),
+            requestFactory: $psr17,
+            streamFactory: $psr17,
+        );
+
+        $result = $client->verify(token: 'token');
+
+        Assert::false($result->success);
+        Assert::true($result->isTransportError());
     }
 
     private function createClient(RecaptchaConfig $config, Response $response): RecaptchaClient

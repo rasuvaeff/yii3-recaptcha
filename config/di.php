@@ -2,10 +2,11 @@
 
 declare(strict_types=1);
 
-use Rasuvaeff\Yii3Recaptcha\RecaptchaClient;
+use Rasuvaeff\Yii3Recaptcha\ClientIpResolverInterface;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaConfig;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV2RuleHandler;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV3RuleHandler;
+use Rasuvaeff\Yii3Recaptcha\RemoteAddrClientIpResolver;
 use Yiisoft\Translator\CategorySource;
 use Yiisoft\Translator\IdMessageReader;
 use Yiisoft\Translator\IntlMessageFormatter;
@@ -25,6 +26,13 @@ return [
             'sendRemoteIp' => $params['rasuvaeff/yii3-recaptcha']['sendRemoteIp'],
         ],
     ],
+
+    // Default client-IP resolver. Applications behind a proxy/CDN rebind this
+    // interface to an adapter over their own client-IP detector.
+    ClientIpResolverInterface::class => RemoteAddrClientIpResolver::class,
+
+    // Rule handlers are constructed by the validator's container-backed
+    // resolver; deps (client, IP resolver, translator) are autowired here.
     RecaptchaV2RuleHandler::class => [
         '__construct()' => [
             'translationCategory' => $params['rasuvaeff/yii3-recaptcha']['translation.category'],

@@ -36,7 +36,9 @@ $html = RecaptchaV2::widget()
     ->withExpiredCallback('onExpired')
     ->withErrorCallback('onError')
     ->withJsApiUrl('https://www.google.com/recaptcha/api.js')
+    ->withNonce('csp-nonce')               // optional; CSP nonce on every <script>
     ->render();
+// render() throws Exception\MissingSiteKeyException if no site key is set.
 ```
 
 ### RecaptchaV3 (widget)
@@ -82,8 +84,10 @@ $result = $client->verifyV3(token: 'token', clientIp: '1.2.3.4');         // use
 $result = $client->verifyWithSecret(token: 'token', secret: 'custom');    // uses custom secret
 ```
 
-In the validator pipeline handlers resolve `clientIp` from the current request
-via `yiisoft/request-provider` (`RequestProviderInterface`, `REMOTE_ADDR`).
+Never throws: transport/HTTP/JSON failure returns a failed VerificationResult
+tagged TRANSPORT_ERROR (fail-closed). In the validator pipeline handlers resolve
+`clientIp` via `ClientIpResolverInterface` (default `RemoteAddrClientIpResolver`,
+validated `REMOTE_ADDR`).
 
 ### VerificationResult
 
@@ -96,8 +100,31 @@ final readonly class VerificationResult
     public ?string $action;     // v3 only
     public ?string $hostname;
     public ?string $challengeTs;
+
+    const string TRANSPORT_ERROR = 'transport-error';
+    public static function transportError(): self;
+    public function isTransportError(): bool;   // transport failure vs real verdict
 }
 ```
+
+### Fields (yiisoft/form-model), resolver, exceptions
+
+```php
+use Rasuvaeff\Yii3Recaptcha\Field\RecaptchaV3Field;
+echo RecaptchaV3Field::field($formModel, 'recaptchaToken')->siteKey($key)->action('login')->nonce($n);
+
+use Rasuvaeff\Yii3Recaptcha\Field\RecaptchaV2Field;
+echo RecaptchaV2Field::field($formModel, 'recaptchaToken')->siteKey($key)->theme(RecaptchaV2Theme::Dark);
+```
+
+- `ClientIpResolverInterface` / `RemoteAddrClientIpResolver` — rebind behind a proxy/CDN.
+- `Exception\RecaptchaException` (marker) / `Exception\MissingSiteKeyException`.
+
+### Headless (SPA + API)
+
+Frontend renders reCAPTCHA and sends the token to the API; backend verifies only.
+Put the token on a request DTO property with `#[RecaptchaV3Rule(action: '...')]`,
+or verify imperatively via `RecaptchaClient::verifyV3()` for raw-score decisions.
 
 ### RecaptchaV2Rule / RecaptchaV2RuleHandler
 
@@ -112,6 +139,9 @@ public string $gRecaptchaResponse = '';
 #[RecaptchaV3Rule(threshold: 0.5, action: 'login', scoreTooLowMessage: 'Low score')]
 public string $recaptchaToken = '';
 ```
+
+Both rules accept `failOpenOnError: bool = false` — pass validation when siteverify
+is unreachable (transport error). Default fails closed.
 
 v3 handler logic: `success && score >= threshold && (action === null || action === response.action)`.
 

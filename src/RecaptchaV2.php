@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3Recaptcha;
 
+use Rasuvaeff\Yii3Recaptcha\Exception\MissingSiteKeyException;
 use Yiisoft\Html\Html;
+use Yiisoft\Html\Tag\Script;
 use Yiisoft\Widget\Widget;
 
 /**
@@ -24,6 +26,7 @@ final class RecaptchaV2 extends Widget
     private ?string $callback = null;
     private ?string $expiredCallback = null;
     private ?string $errorCallback = null;
+    private ?string $nonce = null;
 
     public function __construct(
         ?RecaptchaConfig $config = null,
@@ -113,10 +116,22 @@ final class RecaptchaV2 extends Widget
         return $new;
     }
 
+    /**
+     * Sets the CSP `nonce` attribute on every emitted `<script>` tag, so the
+     * widget works under a strict Content-Security-Policy without `unsafe-inline`.
+     */
+    public function withNonce(string $nonce): self
+    {
+        $new = clone $this;
+        $new->nonce = $nonce;
+
+        return $new;
+    }
+
     #[\Override]
     public function render(): string
     {
-        $siteKey = $this->siteKey ?? throw new \RuntimeException('siteKey is required');
+        $siteKey = $this->siteKey ?? throw new MissingSiteKeyException();
         $id = $this->id ?? Html::generateId('recaptcha-v2-');
         $callback = 'recaptchaOnload_' . (string) preg_replace('/[^A-Za-z0-9_]/', '_', $id);
 
@@ -134,9 +149,9 @@ final class RecaptchaV2 extends Widget
             $hiddenInput = Html::hiddenInput($this->responseFieldName)
                 ->attribute('id', $fieldId)
                 ->render();
-            $hiddenInput .= "\n" . Html::script(
+            $hiddenInput .= "\n" . $this->nonced(Html::script(
                 "function {$copyCallback}(t){document.getElementById({$fieldIdJson}).value=t;{$chain}}",
-            )->render();
+            ))->render();
 
             $userCallback = $copyCallback;
         }
@@ -157,16 +172,23 @@ final class RecaptchaV2 extends Widget
         // Define the explicit-render callback up front; the API invokes it via the
         // `onload` parameter once loaded, so `grecaptcha` is guaranteed to exist
         // (calling grecaptcha.render() inline under async/defer would throw).
-        $initScript = Html::script("function {$callback}() { grecaptcha.render({$idJson}, {$paramsJson}); }")
-            ->render();
+        $initScript = $this->nonced(
+            Html::script("function {$callback}() { grecaptcha.render({$idJson}, {$paramsJson}); }"),
+        )->render();
 
-        $apiScript = Html::script('')
-            ->url($this->jsApiUrl . '?onload=' . urlencode($callback) . '&render=explicit')
-            ->attribute('async', '')
-            ->attribute('defer', '')
-            ->render();
+        $apiScript = $this->nonced(
+            Html::script('')
+                ->url($this->jsApiUrl . '?onload=' . urlencode($callback) . '&render=explicit')
+                ->attribute('async', '')
+                ->attribute('defer', ''),
+        )->render();
 
         return $hiddenInput . ($hiddenInput !== '' ? "\n" : '')
             . $initScript . "\n" . Html::div('')->attribute('id', $id)->render() . "\n" . $apiScript;
+    }
+
+    private function nonced(Script $tag): Script
+    {
+        return $this->nonce === null ? $tag : $tag->attribute('nonce', $this->nonce);
     }
 }
