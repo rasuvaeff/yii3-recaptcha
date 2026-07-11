@@ -56,24 +56,31 @@ constructed by the validator's **container-backed handler resolver** (the Yii3
 default via `yiisoft/config`), which autowires the client, the client-IP
 resolver and the optional translator — **no extra DI config required**.
 
-> **Requires a container-backed rule-handler resolver.** `yiisoft/validator`
-> defaults to `SimpleRuleHandlerContainer`, which constructs handlers with
-> `new $class()` — that cannot inject this handler's dependencies and throws
-> `ArgumentCountError`. Bind the container-backed resolver once in your app:
+> **Works out of the box; DI-injected when available.** The rule handlers take
+> their dependencies (client, IP resolver, translator) as optional constructor
+> arguments and fall back to `RecaptchaRegistry`, which the package's
+> config-plugin **bootstrap** populates from the container. So they work with the
+> `yiisoft/validator` default `SimpleRuleHandlerContainer` (no-arg `new`) with no
+> extra config. When a container-backed resolver builds them, the injected deps
+> win and the registry is never consulted.
+>
+> The application must provide a **PSR-18 `ClientInterface`** and PSR-17 factories
+> (the `RecaptchaClient` is built from them) and set the keys in params (see
+> [Dependency injection](#dependency-injection-yii3)). Two optional pure-DI
+> setups if you'd rather not rely on the static fallback:
 >
 > ```php
-> // config/common/di.php
-> use Yiisoft\Validator\RuleHandlerResolverInterface;
-> use Yiisoft\Validator\RuleHandlerResolver\RuleHandlerContainer;
+> // A) container-backed resolver (all rule handlers resolved via the container)
+> RuleHandlerResolverInterface::class => RuleHandlerContainer::class,
 >
-> return [
->     RuleHandlerResolverInterface::class => RuleHandlerContainer::class,
-> ];
+> // B) keep the default resolver, pre-register the DI-built handlers as instances
+> RuleHandlerResolverInterface::class => static fn (
+>     RecaptchaV2RuleHandler $v2, RecaptchaV3RuleHandler $v3,
+> ): SimpleRuleHandlerContainer => new SimpleRuleHandlerContainer([
+>     RecaptchaV2RuleHandler::class => $v2,
+>     RecaptchaV3RuleHandler::class => $v3,
+> ]),
 > ```
->
-> The application must also provide a **PSR-18 `ClientInterface`** and PSR-17
-> factories (the `RecaptchaClient` is autowired from them). Set your keys in
-> params (see [Dependency injection](#dependency-injection-yii3)).
 
 ## Headless / API-only
 
@@ -371,8 +378,10 @@ final readonly class VerificationResult
 |------|---------|
 | `Field\RecaptchaV2Field`, `Field\RecaptchaV3Field` | `yiisoft/form-model` fields (`::field($model, $property)`), delegate to the widgets. |
 | `ClientIpResolverInterface` + `RemoteAddrClientIpResolver` | Pluggable client-IP resolution; default reads validated `REMOTE_ADDR`. |
+| `RecaptchaRegistry` | Static fallback (`configure(client, ipResolver?, translator?)`) for no-arg handler construction; populated by the bootstrap. |
 | `Exception\RecaptchaException` | Marker interface for all package exceptions. |
 | `Exception\MissingSiteKeyException` | Thrown when a widget/field renders without a site key. |
+| `Exception\MissingClientException` | Thrown when a handler has no client (neither injected nor registered). |
 
 ### `RecaptchaV2Rule` / `RecaptchaV2RuleHandler`
 

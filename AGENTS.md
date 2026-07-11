@@ -20,7 +20,8 @@ Public API (namespace `Rasuvaeff\Yii3Recaptcha\`):
 - `VerificationResult` — response DTO (`?float $score` for v3; `transportError()`/`isTransportError()`)
 - `RecaptchaV2Rule` / `RecaptchaV2RuleHandler`, `RecaptchaV3Rule` / `RecaptchaV3RuleHandler` — validator pairs (both accept `failOpenOnError`)
 - `ClientIpResolverInterface` + `RemoteAddrClientIpResolver` — pluggable client-IP resolution
-- `Exception\RecaptchaException` (marker), `Exception\MissingSiteKeyException`
+- `RecaptchaRegistry` — static fallback for no-arg handler construction (populated by bootstrap)
+- `Exception\RecaptchaException` (marker), `Exception\MissingSiteKeyException`, `Exception\MissingClientException`
 - `RecaptchaV2Theme`, `RecaptchaV2Type`, `RecaptchaV2Size` — backed string enums
 - `AbstractRecaptchaRuleHandler` — `@internal` shared handler plumbing (client, IP resolver, translate)
 
@@ -69,14 +70,17 @@ inside the `composer:2` container because the base image has no coverage driver.
 - `RecaptchaClient`, `RecaptchaConfig`, `VerificationResult`, resolvers are
   `final readonly class`. Handlers are `final readonly` extending
   `abstract readonly AbstractRecaptchaRuleHandler` (shared client/IP/translate).
-- **No static registry.** Handlers get deps through the validator's
-  container-backed resolver. NOTE: `yiisoft/validator` defaults to
-  `SimpleRuleHandlerContainer` (no-arg `new`), so the consuming app MUST bind
-  `RuleHandlerResolverInterface => RuleHandlerContainer` (and provide PSR-18/17)
-  — documented in the README. `RecaptchaClient` and `ClientIpResolverInterface`
-  are **required** ctor args — do not reintroduce a nullable static fallback.
-  `config/di.php` is guarded by `ConfigWiringTest` (real `Yiisoft\Di\Container`),
-  since it is not covered by cs/psalm/testo.
+- **Hybrid dep resolution.** Handler ctor deps (`RecaptchaClient`,
+  `ClientIpResolverInterface`, translator) are **optional**; when absent they
+  fall back to `RecaptchaRegistry`, which `config/bootstrap.php` populates from
+  the container. This makes the handlers work with the `yiisoft/validator`
+  default `SimpleRuleHandlerContainer` (no-arg `new`) out of the box AND with a
+  container-backed resolver (injected deps win). Do not make the deps required
+  again — that breaks the no-config path. When neither injected nor registered,
+  `client()` throws `MissingClientException`. `config/di.php` and
+  `config/bootstrap.php` are guarded by `ConfigWiringTest` (real
+  `Yiisoft\Di\Container`), since they are not covered by cs/psalm/testo. The app
+  must still provide PSR-18 `ClientInterface` + PSR-17 factories.
 - `RecaptchaClient::verify()` uses `secretV2`, `verifyV3()` uses `secretV3`;
   `verifyWithSecret()` accepts a custom secret. **Never throws** — transport/HTTP/
   JSON failures return `VerificationResult::transportError()` (fail-closed).

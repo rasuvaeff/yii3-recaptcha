@@ -18,13 +18,14 @@
 
 ### Changed
 
-- **BREAKING:** removed `RecaptchaRegistry`. Rule handlers now receive their
-  dependencies through the validator's container-backed handler resolver (the
-  Yii3 default); the static registry and the `bootstrap.php` config entry are gone.
-- **BREAKING:** rule handler constructors now require `RecaptchaClient` and a
-  `ClientIpResolverInterface` instead of an optional `RequestProviderInterface`.
 - **BREAKING:** `RecaptchaClient` no longer throws on transport/HTTP/JSON errors;
   it returns a failed `VerificationResult` tagged `TRANSPORT_ERROR` (fail-closed).
+- **BREAKING:** rule handlers and `RecaptchaRegistry::configure()` now take a
+  `ClientIpResolverInterface` where they used to take a `RequestProviderInterface`.
+- Handler dependencies stay optional and fall back to `RecaptchaRegistry`
+  (populated by the config-plugin bootstrap), so validation works out of the box
+  with the default `SimpleRuleHandlerContainer` and with a container-backed
+  resolver alike.
 - Widgets now throw `MissingSiteKeyException` instead of a plain `RuntimeException`
   when rendered without a site key.
 

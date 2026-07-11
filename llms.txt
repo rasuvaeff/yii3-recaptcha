@@ -118,7 +118,8 @@ echo RecaptchaV2Field::field($formModel, 'recaptchaToken')->siteKey($key)->theme
 ```
 
 - `ClientIpResolverInterface` / `RemoteAddrClientIpResolver` — rebind behind a proxy/CDN.
-- `Exception\RecaptchaException` (marker) / `Exception\MissingSiteKeyException`.
+- `RecaptchaRegistry::configure(client, ipResolver?, translator?)` — static fallback populated by the config-plugin bootstrap; lets handlers work with the default `SimpleRuleHandlerContainer` (no-arg construction). Injected deps win over the registry.
+- `Exception\RecaptchaException` (marker) / `Exception\MissingSiteKeyException` / `Exception\MissingClientException`.
 
 ### Headless (SPA + API)
 
