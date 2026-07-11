@@ -28,6 +28,7 @@ final class RecaptchaV2Rule implements RuleInterface, SkipOnEmptyInterface, Skip
         private readonly string   $message = 'The CAPTCHA verification failed.',
         private readonly ?string  $secret = null,
         private readonly bool     $sendRemoteIp = false,
+        private readonly bool     $failOpenOnError = false,
         bool|callable|null        $skipOnEmpty = null,
         private readonly bool     $skipOnError = false,
         private readonly ?Closure $when = null,
@@ -55,5 +56,10 @@ final class RecaptchaV2Rule implements RuleInterface, SkipOnEmptyInterface, Skip
     public function getSendRemoteIp(): bool
     {
         return $this->sendRemoteIp;
+    }
+
+    public function isFailOpenOnError(): bool
+    {
+        return $this->failOpenOnError;
     }
 }

@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3Recaptcha;
 
+use Rasuvaeff\Yii3Recaptcha\Exception\MissingSiteKeyException;
 use Yiisoft\Html\Html;
+use Yiisoft\Html\Tag\Script;
+use Yiisoft\Html\Tag\Style;
 use Yiisoft\Widget\Widget;
 
 /**
@@ -24,6 +27,7 @@ final class RecaptchaV3 extends Widget
     private ?string $formId = null;
     private RecaptchaV3Badge $badge = RecaptchaV3Badge::BottomRight;
     private string $jsApiUrl = self::JS_API_URL;
+    private ?string $nonce = null;
 
     public function __construct(
         ?RecaptchaConfig $config = null,
@@ -89,10 +93,23 @@ final class RecaptchaV3 extends Widget
         return $new;
     }
 
+    /**
+     * Sets the CSP `nonce` attribute on every emitted `<script>`/`<style>` tag,
+     * so the widget works under a strict Content-Security-Policy without
+     * `unsafe-inline`.
+     */
+    public function withNonce(string $nonce): self
+    {
+        $new = clone $this;
+        $new->nonce = $nonce;
+
+        return $new;
+    }
+
     #[\Override]
     public function render(): string
     {
-        $siteKey = $this->siteKey ?? throw new \RuntimeException('siteKey is required');
+        $siteKey = $this->siteKey ?? throw new MissingSiteKeyException();
         $fieldId = $this->fieldId ?? Html::generateId('recaptcha-v3-');
 
         $flags = JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP;
@@ -102,9 +119,9 @@ final class RecaptchaV3 extends Widget
 
         // No async/defer: with ?render=KEY the inline grecaptcha.ready() below runs
         // at parse time and needs the API to have defined `grecaptcha` first.
-        $apiScript = Html::script('')
-            ->url($this->jsApiUrl . '?render=' . urlencode($siteKey))
-            ->render();
+        $apiScript = $this->noncedScript(
+            Html::script('')->url($this->jsApiUrl . '?render=' . urlencode($siteKey)),
+        )->render();
 
         $input = Html::hiddenInput($this->fieldName)->attribute('id', $fieldId)->render();
 
@@ -122,10 +139,24 @@ final class RecaptchaV3 extends Widget
 
         $badge = match ($this->badge) {
             RecaptchaV3Badge::BottomRight => '',
-            RecaptchaV3Badge::BottomLeft => "\n" . Html::style('.grecaptcha-badge { left: 14px !important; right: auto !important; }')->render(),
-            RecaptchaV3Badge::Hidden => "\n" . Html::style('.grecaptcha-badge { visibility: hidden; }')->render() . "\n" . self::LEGAL_NOTICE,
+            RecaptchaV3Badge::BottomLeft => "\n" . $this->noncedStyle(
+                Html::style('.grecaptcha-badge { left: 14px !important; right: auto !important; }'),
+            )->render(),
+            RecaptchaV3Badge::Hidden => "\n" . $this->noncedStyle(
+                Html::style('.grecaptcha-badge { visibility: hidden; }'),
+            )->render() . "\n" . self::LEGAL_NOTICE,
         };
 
-        return $apiScript . "\n" . $input . "\n" . Html::script($js)->render() . $badge;
+        return $apiScript . "\n" . $input . "\n" . $this->noncedScript(Html::script($js))->render() . $badge;
+    }
+
+    private function noncedScript(Script $tag): Script
+    {
+        return $this->nonce === null ? $tag : $tag->attribute('nonce', $this->nonce);
+    }
+
+    private function noncedStyle(Style $tag): Style
+    {
+        return $this->nonce === null ? $tag : $tag->attribute('nonce', $this->nonce);
     }
 }

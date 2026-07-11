@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3Recaptcha\Tests;
 
+use Rasuvaeff\PropertyTesting\ArbitraryInterface;
+use Rasuvaeff\PropertyTesting\Gen;
+use Rasuvaeff\PropertyTesting\Property;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaConfig;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV2;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV2Size;
@@ -461,5 +464,40 @@ final class RecaptchaV2Test
             . '<script src="https://www.google.com/recaptcha/api.js?onload=recaptchaOnload_rc&amp;render=explicit" async defer></script>';
 
         Assert::same(self::normalizeInputAttributes($html), self::normalizeInputAttributes($expected));
+    }
+
+    public function withNonceAddsNonceToEveryScript(): void
+    {
+        $widget = RecaptchaV2::widget()->withSiteKey('k')->withId('rc');
+
+        Assert::notSame($widget, $widget->withNonce('n123'));
+        Assert::same(substr_count($widget->withNonce('n123')->render(), 'nonce="n123"'), 2);
+    }
+
+    /**
+     * The number of `<script` markers is invariant to user-controlled input:
+     * the JSON_HEX_* flags escape any `<` in the site key or callback, so no
+     * string can break out of the inline script and inject its own tag.
+     */
+    #[Property(runs: 200)]
+    public function userInputCannotInjectScriptTags(string $payload): void
+    {
+        $html = RecaptchaV2::widget()
+            ->withSiteKey($payload)
+            ->withCallback($payload)
+            ->withId('rc')
+            ->render();
+
+        Assert::same(substr_count($html, '<script'), 2);
+    }
+
+    /**
+     * @return array<string, ArbitraryInterface>
+     */
+    public static function userInputCannotInjectScriptTagsGenerators(): array
+    {
+        return [
+            'payload' => Gen::stringAscii(),
+        ];
     }
 }

@@ -43,4 +43,20 @@ final class VerificationResultTest
         Assert::same($result->hostname, 'example.com');
         Assert::same($result->challengeTs, '2024-01-01T00:00:00Z');
     }
+
+    public function transportErrorIsFailedAndFlagged(): void
+    {
+        $result = VerificationResult::transportError();
+
+        Assert::false($result->success);
+        Assert::same($result->errorCodes, [VerificationResult::TRANSPORT_ERROR]);
+        Assert::true($result->isTransportError());
+    }
+
+    public function verdictFailureIsNotTransportError(): void
+    {
+        $result = new VerificationResult(success: false, errorCodes: ['invalid-input-response']);
+
+        Assert::false($result->isTransportError());
+    }
 }

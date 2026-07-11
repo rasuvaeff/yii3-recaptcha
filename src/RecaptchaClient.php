@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3Recaptcha;
 
+use JsonException;
+use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
@@ -62,23 +64,58 @@ final readonly class RecaptchaClient
             ->withHeader('Content-Type', 'application/x-www-form-urlencoded')
             ->withBody($this->streamFactory->createStream($body));
 
-        $response = $this->httpClient->sendRequest($request);
+        // Fail closed on transport: an unreachable/erroring endpoint yields a
+        // failed VerificationResult tagged TRANSPORT_ERROR, never an exception,
+        // so the validator pipeline stays predictable. Callers who prefer to
+        // fail open on an outage use VerificationResult::isTransportError().
+        try {
+            $response = $this->httpClient->sendRequest($request);
+        } catch (ClientExceptionInterface) {
+            return VerificationResult::transportError();
+        }
 
-        /** @var array{success: bool, error-codes?: string[], score?: float, action?: string, hostname?: string, challenge_ts?: string} $data */
-        $data = json_decode(
-            json: $response->getBody()->__toString(),
-            associative: true,
-            depth: 512,
-            flags: JSON_THROW_ON_ERROR,
-        );
+        $status = $response->getStatusCode();
 
+        if ($status < 200 || $status >= 300) {
+            return VerificationResult::transportError();
+        }
+
+        try {
+            /** @var mixed $data */
+            $data = json_decode(
+                json: $response->getBody()->__toString(),
+                associative: true,
+                depth: 512,
+                flags: JSON_THROW_ON_ERROR,
+            );
+        } catch (JsonException) {
+            return VerificationResult::transportError();
+        }
+
+        if (!\is_array($data)) {
+            return VerificationResult::transportError();
+        }
+
+        /** @var array{success?: mixed, error-codes?: mixed, score?: mixed, action?: mixed, hostname?: mixed, challenge_ts?: mixed} $data */
         return new VerificationResult(
-            success: $data['success'],
-            errorCodes: $data['error-codes'] ?? [],
-            score: $data['score'] ?? null,
-            action: $data['action'] ?? null,
-            hostname: $data['hostname'] ?? null,
-            challengeTs: $data['challenge_ts'] ?? null,
+            success: (bool) ($data['success'] ?? false),
+            errorCodes: $this->normalizeErrorCodes($data['error-codes'] ?? []),
+            score: isset($data['score']) ? (float) $data['score'] : null,
+            action: isset($data['action']) ? (string) $data['action'] : null,
+            hostname: isset($data['hostname']) ? (string) $data['hostname'] : null,
+            challengeTs: isset($data['challenge_ts']) ? (string) $data['challenge_ts'] : null,
         );
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function normalizeErrorCodes(mixed $codes): array
+    {
+        if (!\is_array($codes)) {
+            return [];
+        }
+
+        return array_values(array_filter($codes, 'is_string'));
     }
 }

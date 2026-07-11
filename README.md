@@ -8,11 +8,16 @@
 [![PHP](https://img.shields.io/packagist/dependency-v/rasuvaeff/yii3-recaptcha/php)](https://packagist.org/packages/rasuvaeff/yii3-recaptcha)
 [![License](https://img.shields.io/packagist/l/rasuvaeff/yii3-recaptcha)](LICENSE.md)
 
-Google reCAPTCHA v2 and v3 widget and server-side validator for Yii3.
+Google reCAPTCHA v2 and v3 widgets, `yiisoft/form-model` fields, and a
+server-side validator for Yii3.
 
-Provides `RecaptchaV2` / `RecaptchaV3` widgets for rendering challenges in forms
-and `RecaptchaV2Rule` / `RecaptchaV3Rule` with their handlers for server-side
-verification through the Yii validator pipeline. HTTP calls go through any PSR-18 client.
+Provides `RecaptchaV2` / `RecaptchaV3` widgets and `RecaptchaV2Field` /
+`RecaptchaV3Field` form-model fields for rendering challenges, plus
+`RecaptchaV2Rule` / `RecaptchaV3Rule` with their handlers for server-side
+verification through the Yii validator pipeline. In a **headless setup**
+(SPA/Next.js frontend + API backend) you skip the rendering half entirely and
+use only the validator — see [Headless / API-only](#headless--api-only). HTTP
+calls go through any PSR-18 client.
 
 > **Using an AI coding assistant?** [llms.txt](llms.txt) contains a compact
 > API reference you can share with the model. Contributors: see [AGENTS.md](AGENTS.md).
@@ -28,6 +33,7 @@ verification through the Yii validator pipeline. HTTP calls go through any PSR-1
 | `yiisoft/validator` | `^2.5` |
 | `yiisoft/translator` | `^3.0` |
 | `yiisoft/request-provider` | `^1.3` |
+| `yiisoft/form` + `yiisoft/form-model` | `^1.0` / `^1.1` (form fields) |
 
 ## Installation
 
@@ -45,13 +51,66 @@ composer require guzzlehttp/guzzle nyholm/psr7
 
 ### DI configuration
 
-Since v1.0.5 the package ships `config/bootstrap.php` via `config-plugin`. On every
-application boot it populates `RecaptchaRegistry` with the handler dependencies, so
-`RecaptchaV2RuleHandler` / `RecaptchaV3RuleHandler` work even with the default
-`SimpleRuleHandlerContainer` — **no extra DI config required**.
+The package ships `config/di.php` via `config-plugin`. Rule handlers are
+constructed by the validator's **container-backed handler resolver** (the Yii3
+default via `yiisoft/config`), which autowires the client, the client-IP
+resolver and the optional translator — **no extra DI config required**.
 
-If your app already uses `RuleHandlerContainer` for other reasons, keep it; this
-package is compatible with both resolvers.
+> **Works out of the box; DI-injected when available.** The rule handlers take
+> their dependencies (client, IP resolver, translator) as optional constructor
+> arguments and fall back to `RecaptchaRegistry`, which the package's
+> config-plugin **bootstrap** populates from the container. So they work with the
+> `yiisoft/validator` default `SimpleRuleHandlerContainer` (no-arg `new`) with no
+> extra config. When a container-backed resolver builds them, the injected deps
+> win and the registry is never consulted.
+>
+> The application must provide a **PSR-18 `ClientInterface`** and PSR-17 factories
+> (the `RecaptchaClient` is built from them) and set the keys in params (see
+> [Dependency injection](#dependency-injection-yii3)). Two optional pure-DI
+> setups if you'd rather not rely on the static fallback:
+>
+> ```php
+> // A) container-backed resolver (all rule handlers resolved via the container)
+> RuleHandlerResolverInterface::class => RuleHandlerContainer::class,
+>
+> // B) keep the default resolver, pre-register the DI-built handlers as instances
+> RuleHandlerResolverInterface::class => static fn (
+>     RecaptchaV2RuleHandler $v2, RecaptchaV3RuleHandler $v3,
+> ): SimpleRuleHandlerContainer => new SimpleRuleHandlerContainer([
+>     RecaptchaV2RuleHandler::class => $v2,
+>     RecaptchaV3RuleHandler::class => $v3,
+> ]),
+> ```
+
+## Headless / API-only
+
+For a **SPA/Next.js frontend + Yii3 API backend** the widgets and fields are not
+used — the frontend renders reCAPTCHA (e.g. `react-google-recaptcha`) and calls
+`grecaptcha.execute(siteKey, { action })`, then sends the token to the API. The
+backend only **verifies** it. Put the token on a request DTO property and attach
+the rule:
+
+```php
+final class LoginRequest
+{
+    #[RecaptchaV3Rule(action: 'login', threshold: 0.5)]
+    public string $recaptchaToken = '';
+}
+```
+
+Map the incoming token (JSON body field or a header such as `X-Recaptcha-Token`)
+to that property, then run your normal validation. Different endpoints use
+different `action` names and thresholds. To make a graduated (allow / challenge /
+deny) decision on the raw score instead of a pass/fail rule, verify imperatively:
+
+```php
+$result = $client->verifyV3($token);        // VerificationResult
+if ($result->isTransportError()) { /* siteverify down — decide policy */ }
+$score = $result->score;                     // apply your own score bands
+```
+
+Behind a proxy/CDN, bind a proxy-aware client-IP resolver — see
+[Client IP behind a proxy](#client-ip-behind-a-proxy).
 
 ## Usage
 
@@ -133,6 +192,64 @@ class LoginForm
 }
 ```
 
+### Form fields (form-model)
+
+For server-rendered forms, `RecaptchaV2Field` / `RecaptchaV3Field` integrate with
+`yiisoft/form-model`: they bind the token to a model property and delegate
+rendering to the widgets (one rendering path, so widget and field stay in sync).
+
+```php
+use Rasuvaeff\Yii3Recaptcha\Field\RecaptchaV3Field;
+
+echo RecaptchaV3Field::field($formModel, 'recaptchaToken')
+    ->siteKey($siteKeyV3)
+    ->action('login')
+    ->formId('login-form');   // optional invisible-submit binding
+```
+
+```php
+use Rasuvaeff\Yii3Recaptcha\Field\RecaptchaV2Field;
+
+echo RecaptchaV2Field::field($formModel, 'recaptchaToken')
+    ->siteKey($siteKeyV2)
+    ->theme(RecaptchaV2Theme::Dark);
+```
+
+### Content-Security-Policy
+
+Both widgets emit inline `<script>` (and `<style>`). Under a strict CSP without
+`unsafe-inline`, pass a nonce — it is applied to every emitted tag:
+
+```php
+echo RecaptchaV3::widget()->withNonce($cspNonce);
+echo RecaptchaV3Field::field($form, 'recaptchaToken')->siteKey($key)->nonce($cspNonce);
+```
+
+### Client IP behind a proxy
+
+When `sendRemoteIp` is enabled the client IP is resolved through
+`ClientIpResolverInterface`. The default `RemoteAddrClientIpResolver` reads
+`REMOTE_ADDR` (validated with `FILTER_VALIDATE_IP`) — correct only when you are
+not behind a proxy/CDN, or when a trusted-hosts middleware has already normalised
+`REMOTE_ADDR`. Behind an un-normalised proxy, bind your own resolver:
+
+```php
+// config/common/di.php
+ClientIpResolverInterface::class => static fn (MyIpDetector $d): ClientIpResolverInterface
+    => new class ($d) implements ClientIpResolverInterface {
+        public function __construct(private MyIpDetector $d) {}
+        public function resolve(): ?string { return $this->d->detect(); }
+    },
+```
+
+### Retrying transient failures
+
+`RecaptchaClient` takes any PSR-18 client, so you can wrap it with a retrying
+decorator (e.g. [`rasuvaeff/retry`](https://github.com/rasuvaeff/retry)'s
+`Http\RetryingHttpClient`) to survive transient network errors — retry only on
+transport exceptions, since `siteverify` is a `POST`. No package change needed;
+inject the decorated client where `RecaptchaClient` gets its PSR-18 client.
+
 ### Dependency injection (Yii3)
 
 Override params in your application config:
@@ -186,7 +303,8 @@ return [
 | `withCallback(string $cb): self` | JS callback on success. |
 | `withExpiredCallback(string $cb): self` | JS callback on expiry. |
 | `withErrorCallback(string $cb): self` | JS callback on error. |
-| `render(): string` | Returns HTML. Throws if `siteKey` is not set. |
+| `withNonce(string $nonce): self` | CSP `nonce` on every emitted `<script>`. |
+| `render(): string` | Returns HTML. Throws `MissingSiteKeyException` if `siteKey` is not set. |
 
 ### `RecaptchaV3` (widget)
 
@@ -199,7 +317,8 @@ return [
 | `withFormId(string $id): self` | Enable invisible-submit binding to this form id. Default: none (token filled on load). |
 | `withBadge(RecaptchaV3Badge $badge): self` | Badge position: `BottomRight` (default), `BottomLeft`, or `Hidden` (+ legal notice). |
 | `withJsApiUrl(string $url): self` | Override the script URL. |
-| `render(): string` | Returns HTML (script + hidden input + inline script). Throws if `siteKey` is not set. |
+| `withNonce(string $nonce): self` | CSP `nonce` on every emitted `<script>`/`<style>`. |
+| `render(): string` | Returns HTML (script + hidden input + inline script). Throws `MissingSiteKeyException` if `siteKey` is not set. |
 
 ### `RecaptchaConfig`
 
@@ -230,8 +349,9 @@ final readonly class RecaptchaClient
 
 `verify()` uses `secretV2`, `verifyV3()` uses `secretV3` from config.
 `verifyWithSecret()` uses a custom secret (for v2/v3 rules that override it).
-In the validator pipeline the handlers resolve `clientIp` from the current request
-via `yiisoft/request-provider` (`RequestProviderInterface`, `REMOTE_ADDR`) — only
+The client **never throws**: on a transport/HTTP/JSON failure it returns a failed
+`VerificationResult` tagged `TRANSPORT_ERROR` (fail-closed). In the validator
+pipeline the handlers resolve `clientIp` through `ClientIpResolverInterface` — only
 when the rule's `sendRemoteIp` and `RecaptchaConfig::sendRemoteIp` are both enabled.
 
 ### `VerificationResult`
@@ -245,8 +365,23 @@ final readonly class VerificationResult
     public ?string $action;     // v3 only
     public ?string $hostname;
     public ?string $challengeTs;
+
+    public const string TRANSPORT_ERROR = 'transport-error';
+    public static function transportError(): self;  // failed result for an unreachable endpoint
+    public function isTransportError(): bool;        // true on transport/HTTP/JSON failure (vs a real verdict)
 }
 ```
+
+### Fields, resolver, exceptions
+
+| Type | Purpose |
+|------|---------|
+| `Field\RecaptchaV2Field`, `Field\RecaptchaV3Field` | `yiisoft/form-model` fields (`::field($model, $property)`), delegate to the widgets. |
+| `ClientIpResolverInterface` + `RemoteAddrClientIpResolver` | Pluggable client-IP resolution; default reads validated `REMOTE_ADDR`. |
+| `RecaptchaRegistry` | Static fallback (`configure(client, ipResolver?, translator?)`) for no-arg handler construction; populated by the bootstrap. |
+| `Exception\RecaptchaException` | Marker interface for all package exceptions. |
+| `Exception\MissingSiteKeyException` | Thrown when a widget/field renders without a site key. |
+| `Exception\MissingClientException` | Thrown when a handler has no client (neither injected nor registered). |
 
 ### `RecaptchaV2Rule` / `RecaptchaV2RuleHandler`
 
@@ -255,6 +390,7 @@ final readonly class VerificationResult
 | `message` | `string` | `'The CAPTCHA verification failed.'` | Error message. |
 | `secret` | `?string` | `null` | Override secret. |
 | `sendRemoteIp` | `bool` | `false` | Forward client IP. |
+| `failOpenOnError` | `bool` | `false` | Pass validation when siteverify is unreachable (transport error). Default fails closed. |
 | `skipOnEmpty` | `bool\|callable\|null` | `null` | Skip on empty. |
 | `skipOnError` | `bool` | `false` | Skip on prior error. |
 | `when` | `?Closure` | `null` | Conditional execution. |
@@ -287,8 +423,15 @@ Same as v2, plus:
 - Widget JS is built with `json_encode` using `JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_HEX_AMP`,
   so callback names, actions, ids and other values cannot break out of the
   inline `<script>` (no raw string concatenation).
-- `sendRemoteIp` is opt-in; the client IP comes from the current request via
-  `RequestProviderInterface` (`REMOTE_ADDR`), not from user input.
+- `sendRemoteIp` is opt-in; the client IP comes from `ClientIpResolverInterface`.
+  The default reads `REMOTE_ADDR` (validated with `FILTER_VALIDATE_IP`), not user
+  input. Behind a proxy/CDN bind a proxy-aware resolver so the real client IP is
+  used (see [Client IP behind a proxy](#client-ip-behind-a-proxy)).
+- **Fail-closed by default.** If the siteverify endpoint is unreachable the client
+  returns a failed result (`TRANSPORT_ERROR`) and the rule rejects — an outage
+  cannot silently let bots through. Opt into fail-open per rule with
+  `failOpenOnError: true` when availability matters more than strictness.
+- Widgets accept a CSP `nonce` via `withNonce()` for strict Content-Security-Policy.
 
 ## Examples
 

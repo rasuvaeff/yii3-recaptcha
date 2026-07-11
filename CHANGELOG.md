@@ -1,5 +1,34 @@
 # Changelog
 
+## 2.0.0 — 2026-07-11
+
+### Added
+
+- `RecaptchaV2Field` / `RecaptchaV3Field` — `yiisoft/form-model` fields that bind
+  the token to a form model property and delegate rendering to the widgets.
+- `ClientIpResolverInterface` + default `RemoteAddrClientIpResolver` — pluggable
+  client-IP resolution (rebind behind a proxy/CDN to use the real client IP).
+  The default validates the address with `FILTER_VALIDATE_IP`.
+- `Exception\RecaptchaException` marker + `Exception\MissingSiteKeyException`.
+- `withNonce()` on both widgets — CSP `nonce` on every emitted `<script>`/`<style>`.
+- `failOpenOnError` on `RecaptchaV2Rule` / `RecaptchaV3Rule` — opt in to pass
+  validation when the siteverify endpoint is unreachable (default is fail-closed).
+- `VerificationResult::transportError()` / `isTransportError()` and the
+  `TRANSPORT_ERROR` code.
+
+### Changed
+
+- **BREAKING:** `RecaptchaClient` no longer throws on transport/HTTP/JSON errors;
+  it returns a failed `VerificationResult` tagged `TRANSPORT_ERROR` (fail-closed).
+- **BREAKING:** rule handlers and `RecaptchaRegistry::configure()` now take a
+  `ClientIpResolverInterface` where they used to take a `RequestProviderInterface`.
+- Handler dependencies stay optional and fall back to `RecaptchaRegistry`
+  (populated by the config-plugin bootstrap), so validation works out of the box
+  with the default `SimpleRuleHandlerContainer` and with a container-backed
+  resolver alike.
+- Widgets now throw `MissingSiteKeyException` instead of a plain `RuntimeException`
+  when rendered without a site key.
+
 ## 1.0.3 — 2026-06-30
 
 - Add `/benchmarks` and `/Makefile` to `.gitattributes` export-ignore.
