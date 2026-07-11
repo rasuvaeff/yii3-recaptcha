@@ -309,14 +309,12 @@ final class RecaptchaV3Test
 
     public function withNonceAddsNonceToScriptsAndStyles(): void
     {
-        $html = RecaptchaV3::widget()
-            ->withSiteKey('k')
-            ->withBadge(RecaptchaV3Badge::BottomLeft)
-            ->withNonce('n123')
-            ->render();
+        $widget = RecaptchaV3::widget()->withSiteKey('k')->withBadge(RecaptchaV3Badge::BottomLeft);
+
+        Assert::notSame($widget, $widget->withNonce('n123'));
 
         // apiScript + inline script + badge <style> all carry the nonce.
-        Assert::same(substr_count($html, 'nonce="n123"'), 3);
+        Assert::same(substr_count($widget->withNonce('n123')->render(), 'nonce="n123"'), 3);
     }
 
     /**

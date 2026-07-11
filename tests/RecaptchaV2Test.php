@@ -468,9 +468,10 @@ final class RecaptchaV2Test
 
     public function withNonceAddsNonceToEveryScript(): void
     {
-        $html = RecaptchaV2::widget()->withSiteKey('k')->withId('rc')->withNonce('n123')->render();
+        $widget = RecaptchaV2::widget()->withSiteKey('k')->withId('rc');
 
-        Assert::same(substr_count($html, 'nonce="n123"'), 2);
+        Assert::notSame($widget, $widget->withNonce('n123'));
+        Assert::same(substr_count($widget->withNonce('n123')->render(), 'nonce="n123"'), 2);
     }
 
     /**

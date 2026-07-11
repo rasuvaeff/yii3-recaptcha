@@ -22,6 +22,15 @@
             "ignore": [
                 "Rasuvaeff\\Yii3Recaptcha\\RecaptchaClient::doVerify::92"
             ]
+        },
+        // Equivalent: a form field's InputDataInterface::getName() is non-null via
+        // FormModelInputData (its ::field() factory), so the `?? ''` fallback is
+        // unreachable through the public API — removing it changes nothing.
+        "Coalesce": {
+            "ignore": [
+                "Rasuvaeff\\Yii3Recaptcha\\Field\\RecaptchaV2Field::generateInput::81",
+                "Rasuvaeff\\Yii3Recaptcha\\Field\\RecaptchaV3Field::generateInput::79"
+            ]
         }
     }
 }
