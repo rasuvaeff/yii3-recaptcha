@@ -56,11 +56,24 @@ constructed by the validator's **container-backed handler resolver** (the Yii3
 default via `yiisoft/config`), which autowires the client, the client-IP
 resolver and the optional translator — **no extra DI config required**.
 
-> **Requires a DI-backed rule-handler resolver.** The handlers no longer carry a
-> static fallback, so validating with a hand-built `new Validator(new
-> SimpleRuleHandlerContainer())` will not resolve their dependencies. Use the
-> container-backed resolver (the framework default). Set your keys in params
-> (see [Dependency injection](#dependency-injection-yii3)).
+> **Requires a container-backed rule-handler resolver.** `yiisoft/validator`
+> defaults to `SimpleRuleHandlerContainer`, which constructs handlers with
+> `new $class()` — that cannot inject this handler's dependencies and throws
+> `ArgumentCountError`. Bind the container-backed resolver once in your app:
+>
+> ```php
+> // config/common/di.php
+> use Yiisoft\Validator\RuleHandlerResolverInterface;
+> use Yiisoft\Validator\RuleHandlerResolver\RuleHandlerContainer;
+>
+> return [
+>     RuleHandlerResolverInterface::class => RuleHandlerContainer::class,
+> ];
+> ```
+>
+> The application must also provide a **PSR-18 `ClientInterface`** and PSR-17
+> factories (the `RecaptchaClient` is autowired from them). Set your keys in
+> params (see [Dependency injection](#dependency-injection-yii3)).
 
 ## Headless / API-only
 

@@ -70,10 +70,13 @@ inside the `composer:2` container because the base image has no coverage driver.
   `final readonly class`. Handlers are `final readonly` extending
   `abstract readonly AbstractRecaptchaRuleHandler` (shared client/IP/translate).
 - **No static registry.** Handlers get deps through the validator's
-  container-backed resolver (Yii3 default). `RecaptchaClient` and
-  `ClientIpResolverInterface` are **required** ctor args — do not reintroduce a
-  nullable static fallback. `config/di.php` is guarded by `ConfigWiringTest`
-  (real `Yiisoft\Di\Container`), since it is not covered by cs/psalm/testo.
+  container-backed resolver. NOTE: `yiisoft/validator` defaults to
+  `SimpleRuleHandlerContainer` (no-arg `new`), so the consuming app MUST bind
+  `RuleHandlerResolverInterface => RuleHandlerContainer` (and provide PSR-18/17)
+  — documented in the README. `RecaptchaClient` and `ClientIpResolverInterface`
+  are **required** ctor args — do not reintroduce a nullable static fallback.
+  `config/di.php` is guarded by `ConfigWiringTest` (real `Yiisoft\Di\Container`),
+  since it is not covered by cs/psalm/testo.
 - `RecaptchaClient::verify()` uses `secretV2`, `verifyV3()` uses `secretV3`;
   `verifyWithSecret()` accepts a custom secret. **Never throws** — transport/HTTP/
   JSON failures return `VerificationResult::transportError()` (fail-closed).
