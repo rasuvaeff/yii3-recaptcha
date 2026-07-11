@@ -75,12 +75,10 @@ final class RecaptchaV2Field extends InputField
     #[\Override]
     protected function generateInput(): string
     {
-        $widget = new RecaptchaV2();
-
-        $name = $this->getInputData()->getName();
-        if (\is_string($name) && $name !== '') {
-            $widget = $widget->withResponseFieldName($name);
-        }
+        // A form field always binds the token to its model property. getName()
+        // is non-null via FormModelInputData; `?? ''` only satisfies the
+        // nullable InputDataInterface signature for static analysis.
+        $widget = (new RecaptchaV2())->withResponseFieldName($this->getInputData()->getName() ?? '');
 
         if ($this->siteKey !== null) {
             $widget = $widget->withSiteKey($this->siteKey);

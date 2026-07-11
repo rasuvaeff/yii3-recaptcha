@@ -466,6 +466,13 @@ final class RecaptchaV2Test
         Assert::same(self::normalizeInputAttributes($html), self::normalizeInputAttributes($expected));
     }
 
+    public function withNonceAddsNonceToEveryScript(): void
+    {
+        $html = RecaptchaV2::widget()->withSiteKey('k')->withId('rc')->withNonce('n123')->render();
+
+        Assert::same(substr_count($html, 'nonce="n123"'), 2);
+    }
+
     /**
      * The number of `<script` markers is invariant to user-controlled input:
      * the JSON_HEX_* flags escape any `<` in the site key or callback, so no

@@ -307,6 +307,18 @@ final class RecaptchaV3Test
         Assert::true(preg_match("/\\n<style>/", $html) === 1);
     }
 
+    public function withNonceAddsNonceToScriptsAndStyles(): void
+    {
+        $html = RecaptchaV3::widget()
+            ->withSiteKey('k')
+            ->withBadge(RecaptchaV3Badge::BottomLeft)
+            ->withNonce('n123')
+            ->render();
+
+        // apiScript + inline script + badge <style> all carry the nonce.
+        Assert::same(substr_count($html, 'nonce="n123"'), 3);
+    }
+
     /**
      * The number of `<script` markers is invariant to user-controlled input:
      * the JSON_HEX_* flags escape any `<` in the site key or action, so no

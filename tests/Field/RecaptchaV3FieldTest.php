@@ -46,4 +46,15 @@ final class RecaptchaV3FieldTest
 
         Assert::string($html)->contains('nonce="abc123"');
     }
+
+    public function withMethodsReturnNewImmutableInstances(): void
+    {
+        $field = RecaptchaV3Field::field(new CaptchaForm(), 'token');
+
+        Assert::notSame($field, $field->siteKey('k'));
+        Assert::notSame($field, $field->action('login'));
+        Assert::notSame($field, $field->formId('f'));
+        Assert::notSame($field, $field->badge(RecaptchaV3Badge::Hidden));
+        Assert::notSame($field, $field->nonce('n'));
+    }
 }

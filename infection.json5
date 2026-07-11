@@ -15,13 +15,12 @@
         "CastString": {
             "ignoreSourceCodeByRegex": [".*\\(string\\) preg_replace.*"]
         },
-        // Equivalent under Testo: removing `return null` in the catch falls through to the
-        // identical guard `if (!isset(...)) return null;` — same return value, no warning
-        // emitted. PHPUnit killed these via notice-to-exception conversion; Testo does not.
+        // Equivalent: removing this `return` in the JsonException catch falls through
+        // to `if (!is_array($data))`, where `$data` is unset (the throwing assignment
+        // never completed) → null → the same transportError() is returned.
         "ReturnRemoval": {
             "ignore": [
-                "Rasuvaeff\\Yii3Recaptcha\\RecaptchaV2RuleHandler::resolveClientIp::99",
-                "Rasuvaeff\\Yii3Recaptcha\\RecaptchaV3RuleHandler::resolveClientIp::122"
+                "Rasuvaeff\\Yii3Recaptcha\\RecaptchaClient::doVerify::92"
             ]
         }
     }
