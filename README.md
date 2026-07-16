@@ -7,6 +7,7 @@
 [![Psalm level](https://img.shields.io/badge/psalm-level%201-141F48?logo=psalm&logoColor=white)](https://github.com/rasuvaeff/yii3-recaptcha/blob/master/psalm.xml)
 [![PHP](https://img.shields.io/packagist/dependency-v/rasuvaeff/yii3-recaptcha/php)](https://packagist.org/packages/rasuvaeff/yii3-recaptcha)
 [![License](https://img.shields.io/packagist/l/rasuvaeff/yii3-recaptcha)](LICENSE.md)
+[Русская версия](README.ru.md)
 
 Google reCAPTCHA v2 and v3 widgets, `yiisoft/form-model` fields, and a
 server-side validator for Yii3.
