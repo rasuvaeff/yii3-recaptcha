@@ -8,11 +8,13 @@ use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
 use Psr\Http\Message\RequestInterface;
+use Rasuvaeff\Yii3Recaptcha\AbstractRecaptchaRuleHandler;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaClient;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaConfig;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV2Rule;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV2RuleHandler;
 use Rasuvaeff\Yii3Recaptcha\RemoteAddrClientIpResolver;
+use Rasuvaeff\Yii3Recaptcha\Tests\Support\FixedClientIpResolver;
 use Testo\Assert;
 use Testo\Codecov\Covers;
 use Testo\Expect;
@@ -30,6 +32,7 @@ use Yiisoft\Validator\ValidationContext;
 #[Test]
 #[Covers(RecaptchaV2Rule::class)]
 #[Covers(RecaptchaV2RuleHandler::class)]
+#[Covers(AbstractRecaptchaRuleHandler::class)]
 final class RecaptchaV2RuleHandlerTest
 {
     private RecaptchaV2RuleHandler $handler;
@@ -97,6 +100,20 @@ final class RecaptchaV2RuleHandlerTest
         Assert::true($result->isValid());
         Assert::notNull($this->lastRequest);
         Assert::string($this->lastRequest->getBody()->__toString())->contains('remoteip=1.2.3.4');
+    }
+
+    public function ruleSendRemoteIpFalseNeverConsultsResolverEvenWhenConfigSendsRemoteIp(): void
+    {
+        $this->mockResponse = new Response(200, [], '{"success":true}');
+
+        $client = $this->createClient(new RecaptchaConfig(secretV2: 'test-secret', sendRemoteIp: true));
+        $handler = new RecaptchaV2RuleHandler(client: $client, ipResolver: new FixedClientIpResolver('7.7.7.7'));
+
+        $result = $handler->validate('token', new RecaptchaV2Rule(sendRemoteIp: false), new ValidationContext());
+
+        Assert::true($result->isValid());
+        Assert::notNull($this->lastRequest);
+        Assert::string($this->lastRequest->getBody()->__toString())->notContains('remoteip=');
     }
 
     public function secretOverrideUsesCustomSecret(): void

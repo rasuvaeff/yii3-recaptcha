@@ -11,6 +11,7 @@ use Psr\Http\Message\RequestInterface;
 use Rasuvaeff\PropertyTesting\ArbitraryInterface;
 use Rasuvaeff\PropertyTesting\Gen;
 use Rasuvaeff\PropertyTesting\Property;
+use Rasuvaeff\Yii3Recaptcha\AbstractRecaptchaRuleHandler;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaClient;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaConfig;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV3Rule;
@@ -28,6 +29,7 @@ use Yiisoft\Validator\ValidationContext;
 #[Test]
 #[Covers(RecaptchaV3Rule::class)]
 #[Covers(RecaptchaV3RuleHandler::class)]
+#[Covers(AbstractRecaptchaRuleHandler::class)]
 final class RecaptchaV3RuleHandlerTest
 {
     private RecaptchaV3RuleHandler $handler;
