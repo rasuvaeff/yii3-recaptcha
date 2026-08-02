@@ -7,6 +7,7 @@ namespace Rasuvaeff\Yii3Recaptcha\Tests;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\Response;
 use Psr\Http\Message\RequestInterface;
+use Rasuvaeff\Yii3Recaptcha\AbstractRecaptchaRuleHandler;
 use Rasuvaeff\Yii3Recaptcha\Exception\MissingClientException;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaClient;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaConfig;
@@ -35,6 +36,8 @@ use Yiisoft\Validator\ValidationContext;
 #[Test]
 #[Covers(RecaptchaRegistry::class)]
 #[Covers(RecaptchaV2RuleHandler::class)]
+#[Covers(AbstractRecaptchaRuleHandler::class)]
+#[Covers(MissingClientException::class)]
 final class RegistryFallbackTest
 {
     private ?RequestInterface $lastRequest = null;
@@ -61,7 +64,8 @@ final class RegistryFallbackTest
 
     public function noArgHandlerWithoutRegistryThrows(): void
     {
-        Expect::exception(MissingClientException::class);
+        Expect::exception(MissingClientException::class)
+            ->withMessage('RecaptchaClient is not available. Register the package config (bootstrap) or a container-backed rule-handler resolver.');
 
         (new RecaptchaV2RuleHandler())->validate('token', new RecaptchaV2Rule(), new ValidationContext());
     }
@@ -105,6 +109,51 @@ final class RegistryFallbackTest
 
         Assert::false($result->isValid());
         Assert::true(in_array('Проверка CAPTCHA не удалась.', $result->getErrorMessages(), true));
+    }
+
+    public function injectedClientTakesPriorityOverRegistryClient(): void
+    {
+        RecaptchaRegistry::configure(client: $this->client('{"success":false}'));
+
+        $handler = new RecaptchaV2RuleHandler(client: $this->client('{"success":true}'));
+        $result = $handler->validate('token', new RecaptchaV2Rule(), new ValidationContext());
+
+        Assert::true($result->isValid());
+    }
+
+    public function injectedIpResolverTakesPriorityOverRegistryIpResolver(): void
+    {
+        RecaptchaRegistry::configure(
+            client: $this->client('{"success":true}'),
+            ipResolver: new FixedClientIpResolver('9.9.9.9'),
+        );
+
+        $handler = new RecaptchaV2RuleHandler(
+            client: $this->client('{"success":true}'),
+            ipResolver: new FixedClientIpResolver('1.1.1.1'),
+        );
+        $handler->validate('token', new RecaptchaV2Rule(sendRemoteIp: true), new ValidationContext());
+
+        Assert::notNull($this->lastRequest);
+        Assert::string($this->lastRequest->getBody()->__toString())->contains('remoteip=1.1.1.1');
+        Assert::string($this->lastRequest->getBody()->__toString())->notContains('remoteip=9.9.9.9');
+    }
+
+    public function injectedTranslatorTakesPriorityOverRegistryTranslator(): void
+    {
+        RecaptchaRegistry::configure(
+            client: $this->client('{"success":true}'),
+            translator: new FakeTranslator('registry-message'),
+        );
+
+        $handler = new RecaptchaV2RuleHandler(
+            client: $this->client('{"success":false}'),
+            translator: new FakeTranslator('injected-message'),
+        );
+        $result = $handler->validate('token', new RecaptchaV2Rule(), new ValidationContext());
+
+        Assert::false($result->isValid());
+        Assert::true(in_array('injected-message', $result->getErrorMessages(), true));
     }
 
     private function client(string $body): RecaptchaClient

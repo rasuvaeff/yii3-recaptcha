@@ -15,12 +15,22 @@
         "CastString": {
             "ignoreSourceCodeByRegex": [".*\\(string\\) preg_replace.*"]
         },
-        // Equivalent: removing this `return` in the JsonException catch falls through
-        // to `if (!is_array($data))`, where `$data` is unset (the throwing assignment
-        // never completed) → null → the same transportError() is returned.
+        // Equivalent mutants:
+        //  - doVerify::92: removing this `return` in the JsonException catch falls
+        //    through to `if (!is_array($data))`, where `$data` is unset (the throwing
+        //    assignment never completed) → null → the same transportError() is returned.
+        //  - RemoteAddrClientIpResolver::resolve::36: removing this `return null` in the
+        //    RequestNotSetException catch leaves `$serverParams` undefined and falls
+        //    through to `$serverParams['REMOTE_ADDR'] ?? null` — the `??` operator
+        //    suppresses the undefined-variable warning and evaluates the whole expression
+        //    to null either way, so `$remoteAddr` ends up null and the method still
+        //    returns null via the final `!\is_string($remoteAddr) ... return null;`
+        //    branch. Same return value, same call count, no observable difference —
+        //    see ER-003 audit 2026-08-02.
         "ReturnRemoval": {
             "ignore": [
-                "Rasuvaeff\\Yii3Recaptcha\\RecaptchaClient::doVerify::92"
+                "Rasuvaeff\\Yii3Recaptcha\\RecaptchaClient::doVerify::92",
+                "Rasuvaeff\\Yii3Recaptcha\\RemoteAddrClientIpResolver::resolve::36"
             ]
         },
         // Equivalent: a form field's InputDataInterface::getName() is non-null via

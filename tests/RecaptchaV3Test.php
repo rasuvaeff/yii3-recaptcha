@@ -7,6 +7,7 @@ namespace Rasuvaeff\Yii3Recaptcha\Tests;
 use Rasuvaeff\PropertyTesting\ArbitraryInterface;
 use Rasuvaeff\PropertyTesting\Gen;
 use Rasuvaeff\PropertyTesting\Property;
+use Rasuvaeff\Yii3Recaptcha\Exception\MissingSiteKeyException;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaConfig;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV3;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV3Badge;
@@ -18,6 +19,8 @@ use Testo\Test;
 
 #[Test]
 #[Covers(RecaptchaV3::class)]
+#[Covers(RecaptchaV3Badge::class)]
+#[Covers(MissingSiteKeyException::class)]
 final class RecaptchaV3Test
 {
     use NormalizesHtml;
@@ -90,7 +93,8 @@ final class RecaptchaV3Test
 
     public function throwsWithoutSiteKey(): void
     {
-        Expect::exception(\RuntimeException::class);
+        Expect::exception(MissingSiteKeyException::class)
+            ->withMessage('A reCAPTCHA site key is required but was not configured');
         RecaptchaV3::widget()->render();
     }
 
