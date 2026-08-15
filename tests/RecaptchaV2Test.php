@@ -419,8 +419,8 @@ final class RecaptchaV2Test
         $hiddenPos = strpos($html, 'type="hidden"');
         $initPos = strpos($html, 'function recaptchaOnload_');
 
-        Assert::notSame($hiddenPos, false);
-        Assert::notSame($initPos, false);
+        Assert::notSame($hiddenPos, expected: false);
+        Assert::notSame($initPos, expected: false);
         Assert::true($hiddenPos < $initPos);
     }
 
@@ -482,7 +482,7 @@ final class RecaptchaV2Test
      * the JSON_HEX_* flags escape any `<` in the site key or callback, so no
      * string can break out of the inline script and inject its own tag.
      */
-    #[Property(runs: 200)]
+    #[Property(runs: 300, timeoutMs: 1000)]
     public function userInputCannotInjectScriptTags(string $payload): void
     {
         $html = RecaptchaV2::widget()
@@ -491,7 +491,10 @@ final class RecaptchaV2Test
             ->withId('rc')
             ->render();
 
+        // Two script tags are the widget's own; anything the payload smuggles
+        // in would be a third.
         Assert::same(substr_count($html, '<script'), 2);
+        Assert::same(substr_count($html, '</script'), 2);
     }
 
     /**
@@ -499,8 +502,31 @@ final class RecaptchaV2Test
      */
     public static function userInputCannotInjectScriptTagsGenerators(): array
     {
+        // Gen::stringAscii() draws from the whole printable range, where the
+        // five characters that actually matter for HTML escaping are one in
+        // twenty each — a 200-character-alphabet generator practically never
+        // produces `</script>`. This alphabet is the escaping problem itself,
+        // plus enough filler to make length vary.
         return [
-            'payload' => Gen::stringAscii(),
+            'payload' => Gen::frequency([
+                [3, Gen::stringFrom('<>"\'&/\\ =;script', minLength: 0, maxLength: 40)],
+                [1, Gen::stringAscii()],
+            ]),
         ];
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function userInputCannotInjectScriptTagsExamples(): iterable
+    {
+        // The payloads a reviewer would try by hand, pinned so they run before
+        // the random phase and on every seed.
+        yield 'empty' => [''];
+        yield 'closing script tag' => ['</script><script>alert(1)</script>'];
+        yield 'breaking out of a double-quoted attribute' => ['" onload="alert(1)'];
+        yield 'breaking out of a single-quoted attribute' => ["' onload='alert(1)"];
+        yield 'html entity that must stay escaped' => ['&lt;script&gt;'];
+        yield 'ampersand' => ['a&b'];
     }
 }

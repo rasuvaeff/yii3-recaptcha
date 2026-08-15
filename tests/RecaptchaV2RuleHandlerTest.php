@@ -83,7 +83,7 @@ final class RecaptchaV2RuleHandlerTest
         $result = $this->handler->validate('token', new RecaptchaV2Rule(message: 'Custom error'), new ValidationContext());
 
         Assert::false($result->isValid());
-        Assert::true(in_array('Custom error', $result->getErrorMessages(), true));
+        Assert::true(in_array('Custom error', $result->getErrorMessages(), strict: true));
     }
 
     public function sendRemoteIpPassesClientIpFromRequest(): void
@@ -152,7 +152,7 @@ final class RecaptchaV2RuleHandlerTest
         $result = $handler->validate('token', new RecaptchaV2Rule(), new ValidationContext());
 
         Assert::false($result->isValid());
-        Assert::true(in_array('Проверка CAPTCHA не удалась.', $result->getErrorMessages(), true));
+        Assert::true(in_array('Проверка CAPTCHA не удалась.', $result->getErrorMessages(), strict: true));
     }
 
     public function throwsOnUnexpectedRule(): void

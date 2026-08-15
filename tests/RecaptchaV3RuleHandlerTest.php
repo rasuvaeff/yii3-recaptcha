@@ -9,6 +9,7 @@ use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
 use Psr\Http\Message\RequestInterface;
 use Rasuvaeff\PropertyTesting\ArbitraryInterface;
+use Rasuvaeff\PropertyTesting\Classify;
 use Rasuvaeff\PropertyTesting\Gen;
 use Rasuvaeff\PropertyTesting\Property;
 use Rasuvaeff\Yii3Recaptcha\AbstractRecaptchaRuleHandler;
@@ -127,7 +128,7 @@ final class RecaptchaV3RuleHandlerTest
         $result = $this->handler->validate('token', new RecaptchaV3Rule(scoreTooLowMessage: 'Low score!'), new ValidationContext());
 
         Assert::false($result->isValid());
-        Assert::true(in_array('Low score!', $result->getErrorMessages(), true));
+        Assert::true(in_array('Low score!', $result->getErrorMessages(), strict: true));
     }
 
     public function customActionMismatchMessage(): void
@@ -135,10 +136,10 @@ final class RecaptchaV3RuleHandlerTest
         $this->mockResponse = new Response(200, [], '{"success":true,"score":0.9,"action":"wrong"}');
 
         $context = (new ValidationContext())->setPropertyLabel('captcha');
-        $result = $this->handler->validate('token', new RecaptchaV3Rule(action: 'login', actionMismatchMessage: 'Bad action!'), $context);
+        $result = $this->handler->validate('token', new RecaptchaV3Rule(actionMismatchMessage: 'Bad action!', action: 'login'), $context);
 
         Assert::false($result->isValid());
-        Assert::true(in_array('Bad action!', $result->getErrorMessages(), true));
+        Assert::true(in_array('Bad action!', $result->getErrorMessages(), strict: true));
         Assert::same(
             $result->getErrors()[0]->getParameters(),
             [
@@ -302,7 +303,25 @@ final class RecaptchaV3RuleHandlerTest
             new ValidationContext(),
         );
 
+        Classify::cover($score >= $threshold, 'passes the threshold', 30.0);
+        Classify::cover($score < $threshold, 'fails the threshold', 30.0);
+
         Assert::same($result->isValid(), $score >= $threshold);
+    }
+
+    /**
+     * @return iterable<string, array{float, float}>
+     */
+    public static function v3DecisionIsMonotoneInScoreAndThresholdExamples(): iterable
+    {
+        // The boundary is the contract: `>=`, not `>`. A score exactly at the
+        // threshold must pass, and the two ends of the score range must not
+        // be special-cased.
+        yield 'exactly at the threshold' => [0.5, 0.5];
+        yield 'a hair under the threshold' => [0.49, 0.5];
+        yield 'lowest score, lowest threshold' => [0.0, 0.0];
+        yield 'lowest score, any threshold' => [0.0, 0.5];
+        yield 'highest score, highest threshold' => [1.0, 1.0];
     }
 
     /**
