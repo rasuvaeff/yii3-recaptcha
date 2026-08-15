@@ -108,7 +108,7 @@ final class RegistryFallbackTest
         $result = (new RecaptchaV2RuleHandler())->validate('token', new RecaptchaV2Rule(), new ValidationContext());
 
         Assert::false($result->isValid());
-        Assert::true(in_array('Проверка CAPTCHA не удалась.', $result->getErrorMessages(), true));
+        Assert::true(in_array('Проверка CAPTCHA не удалась.', $result->getErrorMessages(), strict: true));
     }
 
     public function injectedClientTakesPriorityOverRegistryClient(): void
@@ -153,7 +153,7 @@ final class RegistryFallbackTest
         $result = $handler->validate('token', new RecaptchaV2Rule(), new ValidationContext());
 
         Assert::false($result->isValid());
-        Assert::true(in_array('injected-message', $result->getErrorMessages(), true));
+        Assert::true(in_array('injected-message', $result->getErrorMessages(), strict: true));
     }
 
     private function client(string $body): RecaptchaClient

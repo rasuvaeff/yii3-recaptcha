@@ -45,6 +45,6 @@ final readonly class VerificationResult
      */
     public function isTransportError(): bool
     {
-        return \in_array(self::TRANSPORT_ERROR, $this->errorCodes, true);
+        return \in_array(self::TRANSPORT_ERROR, $this->errorCodes, strict: true);
     }
 }

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3Recaptcha\Tests;
 
-use Yiisoft\Validator\RuleHandlerInterface;
 use Yiisoft\Validator\RuleInterface;
 
 /**
@@ -13,7 +12,7 @@ use Yiisoft\Validator\RuleInterface;
 final class FakeRule implements RuleInterface
 {
     #[\Override]
-    public function getHandler(): string|RuleHandlerInterface
+    public function getHandler(): string
     {
         return 'fake-handler';
     }
