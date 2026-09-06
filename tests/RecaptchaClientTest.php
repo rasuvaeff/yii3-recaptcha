@@ -6,13 +6,21 @@ namespace Rasuvaeff\Yii3Recaptcha\Tests;
 
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\Response;
+use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
+use Rasuvaeff\Understudy\Arg;
+use Rasuvaeff\Understudy\Captor;
+use Rasuvaeff\Understudy\Invocation;
+use Rasuvaeff\Understudy\Understudy;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaClient;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaConfig;
+use Rasuvaeff\Yii3Recaptcha\Tests\Support\ThrowingClientException;
 use Testo\Assert;
 use Testo\Codecov\Covers;
 use Testo\Lifecycle\BeforeTest;
 use Testo\Test;
+
+use function Rasuvaeff\Understudy\when;
 
 #[Test]
 #[Covers(RecaptchaClient::class)]
@@ -20,7 +28,8 @@ final class RecaptchaClientTest
 {
     private RecaptchaClient $client;
 
-    private ?RequestInterface $lastRequest = null;
+    /** @var Captor<RequestInterface> */
+    private Captor $requests;
 
     private Response $currentResponse;
 
@@ -72,8 +81,7 @@ final class RecaptchaClientTest
 
         $client->verify(token: 'token', clientIp: '1.2.3.4');
 
-        Assert::notNull($this->lastRequest);
-        $body = $this->lastRequest->getBody()->__toString();
+        $body = $this->requests->last()->getBody()->__toString();
         Assert::string($body)->contains('remoteip=1.2.3.4');
     }
 
@@ -83,8 +91,7 @@ final class RecaptchaClientTest
 
         $this->client->verifyWithSecret(token: 'token', secret: 'custom-secret');
 
-        Assert::notNull($this->lastRequest);
-        $body = $this->lastRequest->getBody()->__toString();
+        $body = $this->requests->last()->getBody()->__toString();
         Assert::string($body)->contains('secret=custom-secret');
     }
 
@@ -97,8 +104,7 @@ final class RecaptchaClientTest
 
         $client->verifyV3(token: 'token');
 
-        Assert::notNull($this->lastRequest);
-        $body = $this->lastRequest->getBody()->__toString();
+        $body = $this->requests->last()->getBody()->__toString();
         Assert::string($body)->contains('secret=v3-secret');
     }
 
@@ -108,8 +114,7 @@ final class RecaptchaClientTest
 
         $this->client->verify(token: 'token');
 
-        Assert::notNull($this->lastRequest);
-        $body = $this->lastRequest->getBody()->__toString();
+        $body = $this->requests->last()->getBody()->__toString();
         Assert::string($body)->notContains('remoteip');
     }
 
@@ -122,8 +127,7 @@ final class RecaptchaClientTest
 
         $client->verify(token: 'token');
 
-        Assert::notNull($this->lastRequest);
-        Assert::string($this->lastRequest->getBody()->__toString())->notContains('remoteip');
+        Assert::string($this->requests->last()->getBody()->__toString())->notContains('remoteip');
     }
 
     public function verifyParsesDeeplyNestedJson(): void
@@ -179,8 +183,7 @@ final class RecaptchaClientTest
 
         $client->verify(token: 'token', clientIp: '');
 
-        Assert::notNull($this->lastRequest);
-        Assert::string($this->lastRequest->getBody()->__toString())->notContains('remoteip');
+        Assert::string($this->requests->last()->getBody()->__toString())->notContains('remoteip');
     }
 
     public function sendRemoteIpFalseOmitsRemoteIpEvenWhenClientIpProvided(): void
@@ -192,8 +195,7 @@ final class RecaptchaClientTest
 
         $client->verify(token: 'token', clientIp: '9.9.9.9');
 
-        Assert::notNull($this->lastRequest);
-        Assert::string($this->lastRequest->getBody()->__toString())->notContains('remoteip');
+        Assert::string($this->requests->last()->getBody()->__toString())->notContains('remoteip');
     }
 
     public function verifyReturnsTransportErrorOnNon2xxStatus(): void
@@ -209,11 +211,14 @@ final class RecaptchaClientTest
     public function verifyReturnsTransportErrorWhenClientThrows(): void
     {
         $psr17 = new Psr17Factory();
+        $httpClient = Understudy::for(ClientInterface::class);
+
+        when(fn() => $httpClient->sendRequest(Arg::any()))
+            ->throws(new ThrowingClientException());
+
         $client = new RecaptchaClient(
             config: new RecaptchaConfig(secretV2: 'test-secret'),
-            httpClient: (new FakeHttpClient())->withCallback(
-                static fn(): Response => throw new \Rasuvaeff\Yii3Recaptcha\Tests\Support\ThrowingClientException(),
-            ),
+            httpClient: $httpClient,
             requestFactory: $psr17,
             streamFactory: $psr17,
         );
@@ -308,12 +313,11 @@ final class RecaptchaClientTest
     {
         $psr17 = new Psr17Factory();
         $this->currentResponse = $response;
-        $httpClient = (new FakeHttpClient())
-            ->withCallback(function (RequestInterface $request): Response {
-                $this->lastRequest = $request;
+        $httpClient = Understudy::for(ClientInterface::class);
+        $this->requests = Arg::captor(RequestInterface::class);
 
-                return $this->currentResponse;
-            });
+        when(fn() => $httpClient->sendRequest($this->requests->capture()))
+            ->answers(fn(Invocation $call): Response => $this->currentResponse);
 
         return new RecaptchaClient(
             config: $config,

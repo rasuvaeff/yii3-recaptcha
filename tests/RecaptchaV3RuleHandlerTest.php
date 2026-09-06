@@ -7,11 +7,16 @@ namespace Rasuvaeff\Yii3Recaptcha\Tests;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
+use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
 use Rasuvaeff\PropertyTesting\ArbitraryInterface;
 use Rasuvaeff\PropertyTesting\Classify;
 use Rasuvaeff\PropertyTesting\Gen;
 use Rasuvaeff\PropertyTesting\Property;
+use Rasuvaeff\Understudy\Arg;
+use Rasuvaeff\Understudy\Captor;
+use Rasuvaeff\Understudy\Invocation;
+use Rasuvaeff\Understudy\Understudy;
 use Rasuvaeff\Yii3Recaptcha\AbstractRecaptchaRuleHandler;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaClient;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaConfig;
@@ -25,7 +30,10 @@ use Testo\Lifecycle\BeforeTest;
 use Testo\Test;
 use Yiisoft\RequestProvider\RequestProvider;
 use Yiisoft\Validator\Exception\UnexpectedRuleException;
+use Yiisoft\Validator\RuleInterface;
 use Yiisoft\Validator\ValidationContext;
+
+use function Rasuvaeff\Understudy\when;
 
 #[Test]
 #[Covers(RecaptchaV3Rule::class)]
@@ -35,7 +43,8 @@ final class RecaptchaV3RuleHandlerTest
 {
     private RecaptchaV3RuleHandler $handler;
 
-    private ?RequestInterface $lastRequest = null;
+    /** @var Captor<RequestInterface> */
+    private Captor $requests;
 
     private Response $mockResponse;
 
@@ -161,8 +170,7 @@ final class RecaptchaV3RuleHandlerTest
 
         $this->handler->validate('token', new RecaptchaV3Rule(action: 'login'), new ValidationContext());
 
-        Assert::notNull($this->lastRequest);
-        Assert::string($this->lastRequest->getBody()->__toString())->contains('secret=test-secret-v3');
+        Assert::string($this->requests->last()->getBody()->__toString())->contains('secret=test-secret-v3');
     }
 
     public function apiFailureIncludesErrorCodesInParameters(): void
@@ -194,8 +202,7 @@ final class RecaptchaV3RuleHandlerTest
         $result = $handler->validate('token', new RecaptchaV3Rule(action: 'login', sendRemoteIp: true), new ValidationContext());
 
         Assert::true($result->isValid());
-        Assert::notNull($this->lastRequest);
-        Assert::string($this->lastRequest->getBody()->__toString())->contains('remoteip=1.2.3.4');
+        Assert::string($this->requests->last()->getBody()->__toString())->contains('remoteip=1.2.3.4');
     }
 
     public function omitsRemoteIpWhenRequestDoesNotContainStringAddress(): void
@@ -210,15 +217,17 @@ final class RecaptchaV3RuleHandlerTest
         $result = $handler->validate('token', new RecaptchaV3Rule(action: 'login', sendRemoteIp: true), new ValidationContext());
 
         Assert::true($result->isValid());
-        Assert::notNull($this->lastRequest);
-        Assert::string($this->lastRequest->getBody()->__toString())->notContains('remoteip=');
+        Assert::string($this->requests->last()->getBody()->__toString())->notContains('remoteip=');
     }
 
     public function throwsOnUnexpectedRule(): void
     {
         Expect::exception(UnexpectedRuleException::class);
 
-        $this->handler->validate('token', new FakeRule(), new ValidationContext());
+        $rule = Understudy::for(RuleInterface::class);
+        when(fn() => $rule->getHandler())->returns('fake-handler');
+
+        $this->handler->validate('token', $rule, new ValidationContext());
     }
 
     public function scoreTooLowErrorContainsActualScoreInParameters(): void
@@ -338,12 +347,11 @@ final class RecaptchaV3RuleHandlerTest
     private function createClient(RecaptchaConfig $config): RecaptchaClient
     {
         $psr17 = new Psr17Factory();
-        $httpClient = (new FakeHttpClient())
-            ->withCallback(function (RequestInterface $request): Response {
-                $this->lastRequest = $request;
+        $httpClient = Understudy::for(ClientInterface::class);
+        $this->requests = Arg::captor(RequestInterface::class);
 
-                return $this->mockResponse;
-            });
+        when(fn() => $httpClient->sendRequest($this->requests->capture()))
+            ->answers(fn(Invocation $call): Response => $this->mockResponse);
 
         return new RecaptchaClient(
             config: $config,

@@ -6,15 +6,19 @@ namespace Rasuvaeff\Yii3Recaptcha\Tests;
 
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\Response;
+use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
+use Rasuvaeff\Understudy\Arg;
+use Rasuvaeff\Understudy\Captor;
+use Rasuvaeff\Understudy\Understudy;
 use Rasuvaeff\Yii3Recaptcha\AbstractRecaptchaRuleHandler;
+use Rasuvaeff\Yii3Recaptcha\ClientIpResolverInterface;
 use Rasuvaeff\Yii3Recaptcha\Exception\MissingClientException;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaClient;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaConfig;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaRegistry;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV2Rule;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV2RuleHandler;
-use Rasuvaeff\Yii3Recaptcha\Tests\Support\FixedClientIpResolver;
 use ReflectionClass;
 use Testo\Assert;
 use Testo\Codecov\Covers;
@@ -27,7 +31,10 @@ use Yiisoft\Translator\IntlMessageFormatter;
 use Yiisoft\Translator\Message\Php\MessageSource;
 use Yiisoft\Translator\SimpleMessageFormatter;
 use Yiisoft\Translator\Translator;
+use Yiisoft\Translator\TranslatorInterface;
 use Yiisoft\Validator\ValidationContext;
+
+use function Rasuvaeff\Understudy\when;
 
 /**
  * Covers the no-arg construction path (default SimpleRuleHandlerContainer),
@@ -40,7 +47,8 @@ use Yiisoft\Validator\ValidationContext;
 #[Covers(MissingClientException::class)]
 final class RegistryFallbackTest
 {
-    private ?RequestInterface $lastRequest = null;
+    /** @var Captor<RequestInterface> */
+    private Captor $requests;
 
     #[BeforeTest]
     #[AfterTest]
@@ -50,7 +58,7 @@ final class RegistryFallbackTest
         foreach (['client', 'ipResolver', 'translator'] as $prop) {
             $refl->getProperty($prop)->setValue(null, null);
         }
-        $this->lastRequest = null;
+        $this->requests = Arg::captor(RequestInterface::class);
     }
 
     public function noArgHandlerUsesRegistryClient(): void
@@ -74,13 +82,12 @@ final class RegistryFallbackTest
     {
         RecaptchaRegistry::configure(
             client: $this->client('{"success":true}'),
-            ipResolver: new FixedClientIpResolver('5.6.7.8'),
+            ipResolver: $this->ipResolver('5.6.7.8'),
         );
 
         (new RecaptchaV2RuleHandler())->validate('token', new RecaptchaV2Rule(sendRemoteIp: true), new ValidationContext());
 
-        Assert::notNull($this->lastRequest);
-        Assert::string($this->lastRequest->getBody()->__toString())->contains('remoteip=5.6.7.8');
+        Assert::string($this->requests->last()->getBody()->__toString())->contains('remoteip=5.6.7.8');
     }
 
     public function fallsBackToRemoteAddrResolverWhenNoneConfigured(): void
@@ -90,9 +97,8 @@ final class RegistryFallbackTest
         $result = (new RecaptchaV2RuleHandler())->validate('token', new RecaptchaV2Rule(sendRemoteIp: true), new ValidationContext());
 
         Assert::true($result->isValid());
-        Assert::notNull($this->lastRequest);
         // Default RemoteAddrClientIpResolver with no request → no remoteip sent.
-        Assert::string($this->lastRequest->getBody()->__toString())->notContains('remoteip=');
+        Assert::string($this->requests->last()->getBody()->__toString())->notContains('remoteip=');
     }
 
     public function usesRegistryTranslator(): void
@@ -125,30 +131,29 @@ final class RegistryFallbackTest
     {
         RecaptchaRegistry::configure(
             client: $this->client('{"success":true}'),
-            ipResolver: new FixedClientIpResolver('9.9.9.9'),
+            ipResolver: $this->ipResolver('9.9.9.9'),
         );
 
         $handler = new RecaptchaV2RuleHandler(
             client: $this->client('{"success":true}'),
-            ipResolver: new FixedClientIpResolver('1.1.1.1'),
+            ipResolver: $this->ipResolver('1.1.1.1'),
         );
         $handler->validate('token', new RecaptchaV2Rule(sendRemoteIp: true), new ValidationContext());
 
-        Assert::notNull($this->lastRequest);
-        Assert::string($this->lastRequest->getBody()->__toString())->contains('remoteip=1.1.1.1');
-        Assert::string($this->lastRequest->getBody()->__toString())->notContains('remoteip=9.9.9.9');
+        Assert::string($this->requests->last()->getBody()->__toString())->contains('remoteip=1.1.1.1');
+        Assert::string($this->requests->last()->getBody()->__toString())->notContains('remoteip=9.9.9.9');
     }
 
     public function injectedTranslatorTakesPriorityOverRegistryTranslator(): void
     {
         RecaptchaRegistry::configure(
             client: $this->client('{"success":true}'),
-            translator: new FakeTranslator('registry-message'),
+            translator: $this->translator('registry-message'),
         );
 
         $handler = new RecaptchaV2RuleHandler(
             client: $this->client('{"success":false}'),
-            translator: new FakeTranslator('injected-message'),
+            translator: $this->translator('injected-message'),
         );
         $result = $handler->validate('token', new RecaptchaV2Rule(), new ValidationContext());
 
@@ -159,11 +164,10 @@ final class RegistryFallbackTest
     private function client(string $body): RecaptchaClient
     {
         $psr17 = new Psr17Factory();
-        $httpClient = (new FakeHttpClient())->withCallback(function (RequestInterface $request) use ($body): Response {
-            $this->lastRequest = $request;
+        $httpClient = Understudy::for(ClientInterface::class);
 
-            return new Response(200, [], $body);
-        });
+        when(fn() => $httpClient->sendRequest($this->requests->capture()))
+            ->returns(new Response(200, [], $body));
 
         return new RecaptchaClient(
             config: new RecaptchaConfig(secretV2: 'test-secret', sendRemoteIp: true),
@@ -171,5 +175,21 @@ final class RegistryFallbackTest
             requestFactory: $psr17,
             streamFactory: $psr17,
         );
+    }
+
+    private function ipResolver(string $ip): ClientIpResolverInterface
+    {
+        $resolver = Understudy::for(ClientIpResolverInterface::class);
+        when(fn() => $resolver->resolve())->returns($ip);
+
+        return $resolver;
+    }
+
+    private function translator(string $message): TranslatorInterface
+    {
+        $translator = Understudy::for(TranslatorInterface::class);
+        when(fn() => $translator->translate(Arg::any(), Arg::any(), Arg::any()))->returns($message);
+
+        return $translator;
     }
 }

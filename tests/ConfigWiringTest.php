@@ -8,6 +8,7 @@ use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
+use Rasuvaeff\Understudy\Understudy;
 use Rasuvaeff\Yii3Recaptcha\ClientIpResolverInterface;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaRegistry;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV2RuleHandler;
@@ -79,8 +80,13 @@ final class ConfigWiringTest
 
         $psr17 = new Psr17Factory();
 
+        // Wiring only: a strict double refuses any HTTP call this test
+        // should never make.
+        $httpClient = Understudy::for(ClientInterface::class);
+        Understudy::strict($httpClient);
+
         $definitions = array_merge($di, [
-            ClientInterface::class => new FakeHttpClient(),
+            ClientInterface::class => $httpClient,
             RequestFactoryInterface::class => $psr17,
             StreamFactoryInterface::class => $psr17,
         ]);

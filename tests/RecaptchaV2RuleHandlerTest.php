@@ -7,14 +7,19 @@ namespace Rasuvaeff\Yii3Recaptcha\Tests;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
+use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
+use Rasuvaeff\Understudy\Arg;
+use Rasuvaeff\Understudy\Captor;
+use Rasuvaeff\Understudy\Invocation;
+use Rasuvaeff\Understudy\Understudy;
 use Rasuvaeff\Yii3Recaptcha\AbstractRecaptchaRuleHandler;
+use Rasuvaeff\Yii3Recaptcha\ClientIpResolverInterface;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaClient;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaConfig;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV2Rule;
 use Rasuvaeff\Yii3Recaptcha\RecaptchaV2RuleHandler;
 use Rasuvaeff\Yii3Recaptcha\RemoteAddrClientIpResolver;
-use Rasuvaeff\Yii3Recaptcha\Tests\Support\FixedClientIpResolver;
 use Testo\Assert;
 use Testo\Codecov\Covers;
 use Testo\Expect;
@@ -27,7 +32,10 @@ use Yiisoft\Translator\Message\Php\MessageSource;
 use Yiisoft\Translator\SimpleMessageFormatter;
 use Yiisoft\Translator\Translator;
 use Yiisoft\Validator\Exception\UnexpectedRuleException;
+use Yiisoft\Validator\RuleInterface;
 use Yiisoft\Validator\ValidationContext;
+
+use function Rasuvaeff\Understudy\when;
 
 #[Test]
 #[Covers(RecaptchaV2Rule::class)]
@@ -39,7 +47,8 @@ final class RecaptchaV2RuleHandlerTest
 
     private RecaptchaClient $client;
 
-    private ?RequestInterface $lastRequest = null;
+    /** @var Captor<RequestInterface> */
+    private Captor $requests;
 
     private Response $mockResponse;
 
@@ -98,8 +107,7 @@ final class RecaptchaV2RuleHandlerTest
         $result = $handler->validate('token', new RecaptchaV2Rule(sendRemoteIp: true), new ValidationContext());
 
         Assert::true($result->isValid());
-        Assert::notNull($this->lastRequest);
-        Assert::string($this->lastRequest->getBody()->__toString())->contains('remoteip=1.2.3.4');
+        Assert::string($this->requests->last()->getBody()->__toString())->contains('remoteip=1.2.3.4');
     }
 
     public function ruleSendRemoteIpFalseNeverConsultsResolverEvenWhenConfigSendsRemoteIp(): void
@@ -107,13 +115,16 @@ final class RecaptchaV2RuleHandlerTest
         $this->mockResponse = new Response(200, [], '{"success":true}');
 
         $client = $this->createClient(new RecaptchaConfig(secretV2: 'test-secret', sendRemoteIp: true));
-        $handler = new RecaptchaV2RuleHandler(client: $client, ipResolver: new FixedClientIpResolver('7.7.7.7'));
+        // The rule says sendRemoteIp: false, so the resolver must never be
+        // consulted: a strict double fails the test at the call.
+        $ipResolver = Understudy::for(ClientIpResolverInterface::class);
+        Understudy::strict($ipResolver);
+        $handler = new RecaptchaV2RuleHandler(client: $client, ipResolver: $ipResolver);
 
         $result = $handler->validate('token', new RecaptchaV2Rule(sendRemoteIp: false), new ValidationContext());
 
         Assert::true($result->isValid());
-        Assert::notNull($this->lastRequest);
-        Assert::string($this->lastRequest->getBody()->__toString())->notContains('remoteip=');
+        Assert::string($this->requests->last()->getBody()->__toString())->notContains('remoteip=');
     }
 
     public function secretOverrideUsesCustomSecret(): void
@@ -122,8 +133,7 @@ final class RecaptchaV2RuleHandlerTest
 
         $this->handler->validate('token', new RecaptchaV2Rule(secret: 'override-secret'), new ValidationContext());
 
-        Assert::notNull($this->lastRequest);
-        Assert::string($this->lastRequest->getBody()->__toString())->contains('secret=override-secret');
+        Assert::string($this->requests->last()->getBody()->__toString())->contains('secret=override-secret');
     }
 
     public function ruleReturnsHandlerClass(): void
@@ -159,7 +169,10 @@ final class RecaptchaV2RuleHandlerTest
     {
         Expect::exception(UnexpectedRuleException::class);
 
-        $this->handler->validate('token', new FakeRule(), new ValidationContext());
+        $rule = Understudy::for(RuleInterface::class);
+        when(fn() => $rule->getHandler())->returns('fake-handler');
+
+        $this->handler->validate('token', $rule, new ValidationContext());
     }
 
     public function emptyValueErrorContainsPropertyParameter(): void
@@ -197,8 +210,7 @@ final class RecaptchaV2RuleHandlerTest
         $result = $handler->validate('token', new RecaptchaV2Rule(sendRemoteIp: true), new ValidationContext());
 
         Assert::true($result->isValid());
-        Assert::notNull($this->lastRequest);
-        Assert::string($this->lastRequest->getBody()->__toString())->notContains('remoteip=');
+        Assert::string($this->requests->last()->getBody()->__toString())->notContains('remoteip=');
     }
 
     public function omitsRemoteIpWhenRequestDoesNotContainStringAddress(): void
@@ -213,8 +225,7 @@ final class RecaptchaV2RuleHandlerTest
         $result = $handler->validate('token', new RecaptchaV2Rule(sendRemoteIp: true), new ValidationContext());
 
         Assert::true($result->isValid());
-        Assert::notNull($this->lastRequest);
-        Assert::string($this->lastRequest->getBody()->__toString())->notContains('remoteip=');
+        Assert::string($this->requests->last()->getBody()->__toString())->notContains('remoteip=');
     }
 
     public function transportErrorFailsClosedByDefault(): void
@@ -247,12 +258,11 @@ final class RecaptchaV2RuleHandlerTest
     private function createClient(RecaptchaConfig $config): RecaptchaClient
     {
         $psr17 = new Psr17Factory();
-        $httpClient = (new FakeHttpClient())
-            ->withCallback(function (RequestInterface $request): Response {
-                $this->lastRequest = $request;
+        $httpClient = Understudy::for(ClientInterface::class);
+        $this->requests = Arg::captor(RequestInterface::class);
 
-                return $this->mockResponse;
-            });
+        when(fn() => $httpClient->sendRequest($this->requests->capture()))
+            ->answers(fn(Invocation $call): Response => $this->mockResponse);
 
         return new RecaptchaClient(
             config: $config,
