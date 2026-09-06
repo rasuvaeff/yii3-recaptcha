@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Tests build their doubles with `rasuvaeff/understudy-testo` instead of
+  hand-written fake classes: `FakeHttpClient`, `FakeRequestProvider`,
+  `FakeTranslator`, `FakeRule` and `Support/FixedClientIpResolver` are gone.
+  Request capture reads a typed `Arg::captor()`, the never-consulted IP
+  resolver and the DI-wired HTTP client are strict doubles that fail at the
+  call, and the request-provider call count is a `verify(..., times: 1)`
+  claim. Dev-dependency only; the public contract is untouched.
+
 ## 2.0.0 — 2026-07-11
 
 ### Added

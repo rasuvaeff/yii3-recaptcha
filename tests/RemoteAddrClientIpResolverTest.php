@@ -5,11 +5,17 @@ declare(strict_types=1);
 namespace Rasuvaeff\Yii3Recaptcha\Tests;
 
 use Nyholm\Psr7\ServerRequest;
+use Rasuvaeff\Understudy\Understudy;
 use Rasuvaeff\Yii3Recaptcha\RemoteAddrClientIpResolver;
 use Testo\Assert;
 use Testo\Codecov\Covers;
 use Testo\Test;
+use Yiisoft\RequestProvider\RequestNotSetException;
 use Yiisoft\RequestProvider\RequestProvider;
+use Yiisoft\RequestProvider\RequestProviderInterface;
+
+use function Rasuvaeff\Understudy\verify;
+use function Rasuvaeff\Understudy\when;
 
 #[Test]
 #[Covers(RemoteAddrClientIpResolver::class)]
@@ -24,11 +30,13 @@ final class RemoteAddrClientIpResolverTest
 
     public function requestNotSetExceptionIsCaughtAndReturnsNull(): void
     {
-        $requestProvider = new FakeRequestProvider(throw: true);
+        $requestProvider = Understudy::for(RequestProviderInterface::class);
+        when(fn() => $requestProvider->get())->throws(new RequestNotSetException());
+
         $resolver = new RemoteAddrClientIpResolver($requestProvider);
 
         Assert::null($resolver->resolve());
-        Assert::same($requestProvider->callCount, 1);
+        verify(fn() => $requestProvider->get(), times: 1);
     }
 
     public function validRemoteAddrIsReturned(): void
