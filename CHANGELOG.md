@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- `composer mutation` now runs `infection --with-uncovered`, so mutation testing
+  counts code that tests execute without naming it in `#[Covers]`. `infection.json5`
+  gains the template `PublicVisibility`/`ProtectedVisibility` switches and the
+  default-parameter signature ignore; `minMsi` and `minCoveredMsi` stay 100. No
+  `src/` or test changes.
 - Tests build their doubles with `rasuvaeff/understudy-testo` instead of
   hand-written fake classes: `FakeHttpClient`, `FakeRequestProvider`,
   `FakeTranslator`, `FakeRule` and `Support/FixedClientIpResolver` are gone.
