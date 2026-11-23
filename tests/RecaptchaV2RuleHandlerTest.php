@@ -148,7 +148,7 @@ final class RecaptchaV2RuleHandlerTest
         $translator = new Translator(locale: 'ru');
         $categorySource = new CategorySource(
             'yii3-recaptcha',
-            new MessageSource(dirname(__DIR__) . '/messages'),
+            new MessageSource(__DIR__ . '/../messages'),
             extension_loaded('intl')
                 ? new IntlMessageFormatter()
                 : new SimpleMessageFormatter(),

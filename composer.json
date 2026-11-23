@@ -33,7 +33,7 @@
         "yiisoft/html": "^3.13 || ^4.0",
         "yiisoft/request-provider": "^1.3",
         "yiisoft/translator": "^3.0",
-        "yiisoft/validator": "^2.5",
+        "yiisoft/validator": "^2.6.2",
         "yiisoft/widget": "^2.2"
     },
     "require-dev": {

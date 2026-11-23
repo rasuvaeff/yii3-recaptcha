@@ -87,7 +87,7 @@ final class RecaptchaV3Field extends InputField
         if ($this->formId !== null) {
             $widget = $widget->withFormId($this->formId);
         }
-        if ($this->badge !== null) {
+        if ($this->badge instanceof \Rasuvaeff\Yii3Recaptcha\RecaptchaV3Badge) {
             $widget = $widget->withBadge($this->badge);
         }
         if ($this->nonce !== null) {

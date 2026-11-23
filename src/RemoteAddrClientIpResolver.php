@@ -26,7 +26,7 @@ final readonly class RemoteAddrClientIpResolver implements ClientIpResolverInter
     #[\Override]
     public function resolve(): ?string
     {
-        if ($this->requestProvider === null) {
+        if (!$this->requestProvider instanceof \Yiisoft\RequestProvider\RequestProviderInterface) {
             return null;
         }
 

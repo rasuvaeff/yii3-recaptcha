@@ -83,13 +83,13 @@ final class RecaptchaV2Field extends InputField
         if ($this->siteKey !== null) {
             $widget = $widget->withSiteKey($this->siteKey);
         }
-        if ($this->theme !== null) {
+        if ($this->theme instanceof \Rasuvaeff\Yii3Recaptcha\RecaptchaV2Theme) {
             $widget = $widget->withTheme($this->theme);
         }
-        if ($this->type !== null) {
+        if ($this->type instanceof \Rasuvaeff\Yii3Recaptcha\RecaptchaV2Type) {
             $widget = $widget->withType($this->type);
         }
-        if ($this->size !== null) {
+        if ($this->size instanceof \Rasuvaeff\Yii3Recaptcha\RecaptchaV2Size) {
             $widget = $widget->withSize($this->size);
         }
         if ($this->nonce !== null) {
