@@ -55,7 +55,7 @@ final class ConfigWiringTest
         $container = $this->buildContainer();
 
         /** @var array<callable(Container): void> $bootstrap */
-        $bootstrap = require dirname(__DIR__) . '/config/bootstrap.php';
+        $bootstrap = require __DIR__ . '/../config/bootstrap.php';
         foreach ($bootstrap as $callable) {
             $callable($container);
         }
@@ -71,11 +71,11 @@ final class ConfigWiringTest
     private function buildContainer(): Container
     {
         /** @var array $params */
-        $params = require dirname(__DIR__) . '/config/params.php';
+        $params = require __DIR__ . '/../config/params.php';
 
         /** @var array<string, mixed> $di */
         $di = (static function () use ($params): array {
-            return require dirname(__DIR__) . '/config/di.php';
+            return require __DIR__ . '/../config/di.php';
         })();
 
         $psr17 = new Psr17Factory();

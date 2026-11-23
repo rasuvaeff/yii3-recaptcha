@@ -32,7 +32,7 @@ final class RecaptchaV3 extends Widget
     public function __construct(
         ?RecaptchaConfig $config = null,
     ) {
-        if ($config !== null && $config->siteKeyV3 !== '') {
+        if ($config instanceof \Rasuvaeff\Yii3Recaptcha\RecaptchaConfig && $config->siteKeyV3 !== '') {
             $this->siteKey = $config->siteKeyV3;
         }
     }

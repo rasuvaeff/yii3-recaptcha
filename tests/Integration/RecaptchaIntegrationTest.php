@@ -42,7 +42,7 @@ final class RecaptchaIntegrationTest
 
     public function alwaysPassSecretReturnsSuccess(): void
     {
-        if ($this->client === null) {
+        if (!$this->client instanceof \Rasuvaeff\Yii3Recaptcha\RecaptchaClient) {
             return;
         }
 
@@ -53,7 +53,7 @@ final class RecaptchaIntegrationTest
 
     public function verifyReturnsHostname(): void
     {
-        if ($this->client === null) {
+        if (!$this->client instanceof \Rasuvaeff\Yii3Recaptcha\RecaptchaClient) {
             return;
         }
 

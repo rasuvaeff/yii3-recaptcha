@@ -106,7 +106,7 @@ final class RegistryFallbackTest
         $translator = new Translator(locale: 'ru');
         $translator->addCategorySources(new CategorySource(
             'yii3-recaptcha',
-            new MessageSource(dirname(__DIR__) . '/messages'),
+            new MessageSource(__DIR__ . '/../messages'),
             extension_loaded('intl') ? new IntlMessageFormatter() : new SimpleMessageFormatter(),
         ));
         RecaptchaRegistry::configure(client: $this->client('{"success":false}'), translator: $translator);
