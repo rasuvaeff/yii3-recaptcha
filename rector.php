@@ -5,7 +5,6 @@ declare(strict_types=1);
 use Rasuvaeff\RectorNamedLiterals\AddNameToLiteralArgumentRector;
 use Rector\Php74\Rector\Closure\ClosureToArrowFunctionRector;
 use Rector\CodingStyle\Rector\FuncCall\FunctionFirstClassCallableRector;
-use Rector\CodeQuality\Rector\Identical\FlipTypeControlToUseExclusiveTypeRector;
 use Rector\DeadCode\Rector\Concat\RemoveConcatAutocastRector;
 use Rector\Config\RectorConfig;
 
@@ -22,7 +21,6 @@ return RectorConfig::configure()
     // qualified name inline, stating nothing the type declaration did not, and
     // reading worse at every place it appears.
     ->withSkip([
-        FlipTypeControlToUseExclusiveTypeRector::class,
         // `array_filter($codes, 'is_string')` narrows list<mixed> to
         // list<string> for psalm; `is_string(...)` does not, and the
         // declared return type stops being provable.
